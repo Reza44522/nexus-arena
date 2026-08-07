@@ -5,17 +5,20 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply overflow-x-hidden bg-[#05050e] font-body text-slate-200 antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   ::selection {
     background: rgba(34, 211, 238, 0.35);
     color: #fff;
   }
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: #060612;
@@ -37,8 +40,15 @@
   .glass-strong {
     @apply border border-white/10 bg-[#0b0b1c]/85 backdrop-blur-2xl;
   }
+  .glass-glow {
+    @apply glass;
+    box-shadow: 0 0 30px rgba(34, 211, 238, 0.15);
+  }
   .text-gradient {
     @apply bg-gradient-to-r from-cyan-300 via-sky-400 to-fuchsia-400 bg-clip-text text-transparent;
+  }
+  .text-gradient-gold {
+    @apply bg-gradient-to-r from-amber-300 via-yellow-400 to-orange-400 bg-clip-text text-transparent;
   }
   .bg-grid {
     background-image:
@@ -64,6 +74,13 @@
   .chat-scroll {
     scrollbar-width: thin;
     scrollbar-color: rgba(34, 211, 238, 0.35) transparent;
+  }
+  .card-hover {
+    transition: all 0.3s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 40px rgba(34, 211, 238, 0.2);
   }
 }
 

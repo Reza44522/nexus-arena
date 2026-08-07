@@ -7,6 +7,11 @@ import NeonButton from '../ui/NeonButton';
 
 const links = [
   { to: '/', label: 'Home' },
+  { to: '/games', label: 'Games' },
+  { to: '/store', label: 'Store' },
+  { to: '/tournaments', label: 'Tournaments' },
+  { to: '/leaderboard', label: 'Leaderboard' },
+  { to: '/news', label: 'News' },
   { to: '/stream', label: 'Stream' },
   { to: '/dashboard', label: 'Dashboard' },
 ];
