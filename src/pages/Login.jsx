@@ -25,22 +25,21 @@ export default function Login() {
 
   const update = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (loading) return;
-    setError('');
-    setLoading(true);
-    setTimeout(() => {
-      const res = login(form);
-      if (res.ok) {
-        navigate(location.state?.from?.pathname || '/dashboard', { replace: true });
-      } else {
-        setError(res.error);
-        setShakeKey((k) => k + 1);
-        setLoading(false);
-      }
-    }, 650);
-  };
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (loading) return;
+  setError('');
+  setLoading(true);
+  
+  const res = await login(form);
+  if (res.ok) {
+    navigate(location.state?.from?.pathname || '/dashboard', { replace: true });
+  } else {
+    setError(res.error);
+    setShakeKey((k) => k + 1);
+    setLoading(false);
+  }
+};
 
   const fillDemo = () => setForm({ email: 'demo@nexus.gg', password: 'demo123' });
 

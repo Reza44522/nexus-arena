@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../utils/cn';
 import NeonButton from '../ui/NeonButton';
+import NotificationBell from './NotificationBell';
 
 const links = [
   { to: '/', label: 'Home' },
@@ -19,12 +20,12 @@ const links = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // بررسی اینکه کاربر فعلی ادمین است یا خیر
-  const isAdmin = user?.role === 'admin';
+  // ✅ اصلاح: از profile?.role استفاده کن، نه user?.role
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -37,8 +38,8 @@ export default function Navbar() {
     setOpen(false);
   }, [location.pathname]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
@@ -92,7 +93,7 @@ export default function Navbar() {
               )}
             </NavLink>
           ))}
-          {/* لینک Admin فقط برای ادمین‌ها */}
+          {/* ✅ لینک Admin فقط برای ادمین‌ها */}
           {isAdmin && (
             <NavLink
               to="/admin"
@@ -112,14 +113,17 @@ export default function Navbar() {
         <div className="hidden items-center gap-3 md:flex">
           {user ? (
             <>
+            <NotificationBell />
               <Link
                 to="/dashboard"
                 className="glass flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-4 transition-colors hover:border-cyan-400/40"
               >
                 <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-fuchsia-500 text-xs font-bold text-slate-950">
-                  {user.name?.[0]?.toUpperCase() || 'G'}
+                  {user.email?.[0]?.toUpperCase() || 'G'}
                 </span>
-                <span className="text-sm text-slate-200">{user.name}</span>
+                <span className="text-sm text-slate-200">
+                  {profile?.username || user.email?.split('@')[0]}
+                </span>
               </Link>
               <NeonButton variant="ghost" size="sm" onClick={handleLogout}>
                 Logout
@@ -183,7 +187,7 @@ export default function Navbar() {
                   </NavLink>
                 </motion.div>
               ))}
-              {/* لینک Admin در موبایل فقط برای ادمین‌ها */}
+              {/* ✅ لینک Admin در موبایل */}
               {isAdmin && (
                 <motion.div
                   initial={{ x: -16, opacity: 0 }}

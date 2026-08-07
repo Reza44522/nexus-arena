@@ -37,21 +37,20 @@ export default function Register() {
     setLoading(false);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (loading) return;
-    setError('');
-    if (form.password !== form.confirm) {
-      fail('Passwords do not match.');
-      return;
-    }
-    setLoading(true);
-    setTimeout(() => {
-      const res = register(form);
-      if (res.ok) navigate('/dashboard');
-      else fail(res.error);
-    }, 650);
-  };
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (loading) return;
+  setError('');
+  if (form.password !== form.confirm) {
+    fail('رمزها مطابقت ندارند');
+    return;
+  }
+  setLoading(true);
+  
+  const res = await register(form);
+  if (res.ok) navigate('/dashboard');
+  else fail(res.error);
+};
 
   return (
     <AuthLayout title="Create Account" subtitle="Join 2.4M+ players in the arena">
