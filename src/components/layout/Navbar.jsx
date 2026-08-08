@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Menu, X, LogOut, LayoutDashboard, Shield } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { cn } from '../../utils/cn';
-import NeonButton from '../ui/NeonButton';
 import NotificationBell from './NotificationBell';
+import { cn } from '../../utils/cn';
 
-const links = [
+const LINKS = [
   { to: '/', label: 'Home' },
   { to: '/games', label: 'Games' },
   { to: '/store', label: 'Store' },
@@ -14,219 +14,226 @@ const links = [
   { to: '/leaderboard', label: 'Leaderboard' },
   { to: '/news', label: 'News' },
   { to: '/stream', label: 'Stream' },
+  { to: '/friends', label: 'Friends' },
+    { to: '/support', label: 'Support' },
   { to: '/dashboard', label: 'Dashboard' },
 ];
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-  const [open, setOpen] = useState(false);
-  const { user, profile, logout } = useAuth();
-  const location = useLocation();
+  const auth = useAuth();
+  const { user, profile } = auth;
   const navigate = useNavigate();
 
-  // ✅ اصلاح: از profile?.role استفاده کن، نه user?.role
-  const isAdmin = profile?.role === 'admin';
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [dropOpen, setDropOpen] = useState(false);
+  const dropRef = useRef(null);
 
+  // بستن منوی کشویی وقتی بیرون کلیک می‌شه
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const onDown = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
-  useEffect(() => {
-    setOpen(false);
-  }, [location.pathname]);
+  const isAdmin = profile?.role === 'admin';
 
+  // ✅ خروج — هر دو نام ممکن (signOut یا logout) رو ساپورت می‌کنه
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    setDropOpen(false);
+    setMobileOpen(false);
+    try {
+      if (auth.signOut) await auth.signOut();
+      else if (auth.logout) await auth.logout();
+    } finally {
+      navigate('/');
+    }
   };
 
+  const linkClass = ({ isActive }) =>
+    cn(
+      'whitespace-nowrap rounded-lg px-3 py-2 font-display text-xs uppercase tracking-widest transition-all',
+      isActive
+        ? 'bg-cyan-400/10 text-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.35)]'
+        : 'text-slate-400 hover:text-white'
+    );
+
   return (
-    <motion.header
-      initial={{ y: -80, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className={cn(
-        'fixed inset-x-0 top-0 z-50 transition-all duration-500',
-        scrolled
-          ? 'border-b border-white/10 bg-[#05050e]/80 shadow-[0_8px_40px_rgba(2,6,23,0.6)] backdrop-blur-xl'
-          : 'border-b border-transparent bg-transparent'
-      )}
-    >
-      <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
-        <Link to="/" className="group flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-cyan-400 to-fuchsia-500 font-display text-lg font-black text-slate-950 shadow-[0_0_24px_rgba(34,211,238,0.5)] transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110">
+    <header className="glass-strong fixed inset-x-0 top-0 z-40 border-b border-white/10">
+      <div className="mx-auto flex h-16 max-w-[1700px] items-center gap-3 px-4">
+        {/* لوگو */}
+        <Link to="/" className="flex shrink-0 items-center gap-2">
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-cyan-400 to-fuchsia-500 font-display text-lg font-bold text-slate-950 shadow-glow-cyan">
             N
-          </span>
-          <span className="font-display text-lg font-bold tracking-[0.2em] text-white">
-            NEXUS<span className="text-gradient">ARENA</span>
+          </div>
+          <span className="hidden font-display text-lg font-bold tracking-wider text-white sm:block">
+            NEXUS
+            <span className="bg-gradient-to-r from-cyan-400 to-fuchsia-500 bg-clip-text text-transparent">
+              ARENA
+            </span>
           </span>
         </Link>
 
-        {/* Desktop links */}
-        <div className="hidden items-center gap-1 md:flex">
-          {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.to === '/'}
-              className={({ isActive }) =>
-                cn(
-                  'relative rounded-lg px-4 py-2 font-display text-xs uppercase tracking-[0.25em] transition-colors duration-300',
-                  isActive ? 'text-cyan-300' : 'text-slate-400 hover:text-white'
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {l.label}
-                  {isActive && (
-                    <motion.span
-                      layoutId="nav-underline"
-                      className="absolute inset-x-3 -bottom-0.5 h-px bg-gradient-to-r from-cyan-400 to-fuchsia-500 shadow-[0_0_12px_rgba(34,211,238,0.8)]"
-                    />
-                  )}
-                </>
-              )}
+        {/* لینک‌های دسکتاپ — اگه جا کم بیاد اسکرول می‌شن */}
+        <nav className="hidden flex-1 items-center justify-center gap-0.5 overflow-x-auto lg:flex">
+          {LINKS.map((l) => (
+            <NavLink key={l.to} to={l.to} end={l.to === '/'} className={linkClass}>
+              {l.label}
             </NavLink>
           ))}
-          {/* ✅ لینک Admin فقط برای ادمین‌ها */}
           {isAdmin && (
-            <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                cn(
-                  'relative rounded-lg px-4 py-2 font-display text-xs uppercase tracking-[0.25em] transition-colors duration-300',
-                  isActive ? 'text-fuchsia-300' : 'text-fuchsia-400/70 hover:text-fuchsia-300'
-                )
-              }
-            >
-              👑 Admin
+            <NavLink to="/admin" className={linkClass}>
+              <span className="flex items-center gap-1 text-fuchsia-300">
+                <Shield size={12} /> Admin
+              </span>
             </NavLink>
           )}
-        </div>
+        </nav>
 
-        {/* Desktop auth */}
-        <div className="hidden items-center gap-3 md:flex">
+        {/* ✅ کنترل‌های سمت راست — با shrink-0 هرگز از صفحه بیرون نمی‌زنن */}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {user && <NotificationBell />}
+
           {user ? (
-            <>
-            <NotificationBell />
-              <Link
-                to="/dashboard"
-                className="glass flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-4 transition-colors hover:border-cyan-400/40"
+            <div className="relative" ref={dropRef}>
+              {/* آواتار — کلیک = منوی کشویی */}
+              <button
+                onClick={() => setDropOpen((v) => !v)}
+                title={profile?.username || user.email}
+                className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-fuchsia-500 text-sm font-bold text-slate-950 ring-2 ring-cyan-400/40 transition hover:ring-cyan-300"
               >
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-fuchsia-500 text-xs font-bold text-slate-950">
-                  {user.email?.[0]?.toUpperCase() || 'G'}
-                </span>
-                <span className="text-sm text-slate-200">
-                  {profile?.username || user.email?.split('@')[0]}
-                </span>
-              </Link>
-              <NeonButton variant="ghost" size="sm" onClick={handleLogout}>
-                Logout
-              </NeonButton>
-            </>
+                {(profile?.username || user.email || '?').slice(0, 1).toUpperCase()}
+              </button>
+
+              <AnimatePresence>
+                {dropOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    className="glass-strong absolute right-0 top-12 w-52 overflow-hidden rounded-xl border border-white/10 p-2"
+                  >
+                    <div className="border-b border-white/10 px-3 py-2">
+                      <p className="truncate text-sm font-semibold text-white">
+                        {profile?.username || 'User'}
+                      </p>
+                      <p className="truncate text-xs text-slate-500">{user.email}</p>
+                    </div>
+
+                    <Link
+                      to="/dashboard"
+                      onClick={() => setDropOpen(false)}
+                      className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+                    >
+                      <LayoutDashboard size={15} /> Dashboard
+                    </Link>
+
+                    {isAdmin && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setDropOpen(false)}
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-fuchsia-300 hover:bg-white/10"
+                      >
+                        <Shield size={15} /> Admin Panel
+                      </Link>
+                    )}
+
+                    {/* ✅ دکمه خروج — همیشه دیده می‌شه */}
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                    >
+                      <LogOut size={15} /> Log out
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           ) : (
-            <>
-              <NeonButton variant="ghost" size="sm" onClick={() => navigate('/login')}>
+            <div className="hidden items-center gap-2 sm:flex">
+              <Link to="/login" className="rounded-lg px-3 py-2 text-sm text-slate-300 hover:text-white">
                 Login
-              </NeonButton>
-              <NeonButton size="sm" onClick={() => navigate('/register')}>
-                Join Now
-              </NeonButton>
-            </>
+              </Link>
+              <Link
+                to="/register"
+                className="rounded-lg bg-gradient-to-r from-cyan-500 to-fuchsia-500 px-4 py-2 text-sm font-bold text-white shadow-glow-cyan"
+              >
+                Register
+              </Link>
+            </div>
           )}
+
+          {/* همبرگری موبایل */}
+          <button
+            onClick={() => setMobileOpen((v) => !v)}
+            className="grid h-9 w-9 place-items-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden"
+          >
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
+      </div>
 
-        {/* Mobile burger */}
-        <button
-          onClick={() => setOpen((v) => !v)}
-          aria-label="Toggle menu"
-          className="glass grid h-10 w-10 place-items-center rounded-xl md:hidden"
-        >
-          <div className="space-y-1.5">
-            <motion.span animate={open ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }} className="block h-0.5 w-5 bg-cyan-300" />
-            <motion.span animate={open ? { opacity: 0 } : { opacity: 1 }} className="block h-0.5 w-5 bg-cyan-300" />
-            <motion.span animate={open ? { rotate: -45, y: -6 } : { rotate: 0, y: 0 }} className="block h-0.5 w-5 bg-cyan-300" />
-          </div>
-        </button>
-      </nav>
-
-      {/* Mobile menu */}
+      {/* منوی موبایل */}
       <AnimatePresence>
-        {open && (
-          <motion.div
+        {mobileOpen && (
+          <motion.nav
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden border-b border-white/10 bg-[#05050e]/95 backdrop-blur-2xl md:hidden"
+            className="overflow-hidden border-t border-white/10 lg:hidden"
           >
-            <div className="space-y-1 px-4 py-4">
-              {links.map((l, i) => (
-                <motion.div
+            <div className="space-y-1 px-4 py-3">
+              {LINKS.map((l) => (
+                <NavLink
                   key={l.to}
-                  initial={{ x: -16, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: i * 0.06 }}
+                  to={l.to}
+                  end={l.to === '/'}
+                  onClick={() => setMobileOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      'block rounded-lg px-3 py-2 font-display text-sm uppercase tracking-wider',
+                      isActive ? 'bg-cyan-400/10 text-cyan-300' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                    )
+                  }
                 >
-                  <NavLink
-                    to={l.to}
-                    end={l.to === '/'}
-                    className={({ isActive }) =>
-                      cn(
-                        'block rounded-xl px-4 py-3 font-display text-sm uppercase tracking-[0.25em]',
-                        isActive ? 'bg-cyan-400/10 text-cyan-300' : 'text-slate-300 hover:bg-white/5'
-                      )
-                    }
-                  >
-                    {l.label}
-                  </NavLink>
-                </motion.div>
+                  {l.label}
+                </NavLink>
               ))}
-              {/* ✅ لینک Admin در موبایل */}
+
               {isAdmin && (
-                <motion.div
-                  initial={{ x: -16, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: links.length * 0.06 }}
+                <NavLink
+                  to="/admin"
+                  onClick={() => setMobileOpen(false)}
+                  className="block rounded-lg px-3 py-2 font-display text-sm uppercase tracking-wider text-fuchsia-300 hover:bg-white/5"
                 >
-                  <NavLink
-                    to="/admin"
-                    className={({ isActive }) =>
-                      cn(
-                        'block rounded-xl px-4 py-3 font-display text-sm uppercase tracking-[0.25em]',
-                        isActive ? 'bg-fuchsia-400/10 text-fuchsia-300' : 'text-fuchsia-300 hover:bg-white/5'
-                      )
-                    }
-                  >
-                    👑 Admin Panel
-                  </NavLink>
-                </motion.div>
+                  Admin
+                </NavLink>
               )}
-              <div className="flex gap-3 px-4 pt-3">
-                {user ? (
-                  <NeonButton variant="ghost" size="sm" className="flex-1" onClick={handleLogout}>
-                    Logout
-                  </NeonButton>
-                ) : (
-                  <>
-                    <NeonButton variant="ghost" size="sm" className="flex-1" onClick={() => navigate('/login')}>
-                      Login
-                    </NeonButton>
-                    <NeonButton size="sm" className="flex-1" onClick={() => navigate('/register')}>
-                      Join
-                    </NeonButton>
-                  </>
-                )}
-              </div>
+
+              {!user && (
+                <div className="flex gap-2 pt-2">
+                  <Link to="/login" onClick={() => setMobileOpen(false)} className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-center text-sm text-slate-300">
+                    Login
+                  </Link>
+                  <Link to="/register" onClick={() => setMobileOpen(false)} className="flex-1 rounded-lg bg-gradient-to-r from-cyan-500 to-fuchsia-500 px-3 py-2 text-center text-sm font-bold text-white">
+                    Register
+                  </Link>
+                </div>
+              )}
+
+              {user && (
+                <button
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                >
+                  <LogOut size={15} /> Log out
+                </button>
+              )}
             </div>
-          </motion.div>
+          </motion.nav>
         )}
       </AnimatePresence>
-    </motion.header>
+    </header>
   );
 }

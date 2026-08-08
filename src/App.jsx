@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import BackgroundFX from './components/fx/BackgroundFX';
@@ -11,6 +12,7 @@ import AdminRoute from './components/AdminRoute';
 import ScrollToTop from './components/ScrollToTop';
 import { ToastProvider } from './components/ui/Toast';
 import { useAuth, getActiveRestriction } from './context/AuthContext';
+
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -24,6 +26,7 @@ import News from './pages/News';
 import Support from './pages/Support';
 import Admin from './pages/Admin';
 import NotFound from './pages/NotFound';
+import Friends from './pages/Friends'; // ✅ اضافه شده
 
 // ✅ کامپوننت بن‌چکر: بررسی اینکه کاربر بن/حذف شده است
 function BanChecker() {
@@ -88,6 +91,7 @@ export default function App() {
               <Route path="/news" element={<News />} />
               <Route path="/support" element={<Support />} />
               <Route path="/stream" element={<Stream />} />
+              <Route path="/friends" element={<ProtectedRoute><Friends /></ProtectedRoute>} /> {/* ✅ اضافه شده */}
               <Route
                 path="/dashboard"
                 element={

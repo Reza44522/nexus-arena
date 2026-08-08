@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import PageWrapper from '../components/ui/PageWrapper';
 import GlassCard from '../components/ui/GlassCard';
 import Badge from '../components/ui/Badge';
 import NeonButton from '../components/ui/NeonButton';
+import ReportsTab from '../components/admin/ReportsTab';
+import TicketsTab from '../components/admin/TicketsTab';
+import StreamControlTab from '../components/admin/StreamControlTab';
 import { cn } from '../utils/cn';
 
 const statusInfo = {
@@ -28,22 +32,20 @@ function StatBox({ icon, label, value, accent = 'from-cyan-400 to-blue-500' }) {
 }
 
 export default function Admin() {
-  const { user, profile, getAllUsers, deleteUser, promoteUser, moderateUser, sendNotification, isAdmin, isOwner } = useAuth();
+  const { user, profile, getAllUsers, deleteUser, moderateUser, sendNotification, isAdmin, isOwner } = useAuth();
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-
-  // Modal مدیریت کاربر
   const [modTarget, setModTarget] = useState(null);
   const [modAction, setModAction] = useState('ban');
   const [modHours, setModHours] = useState('1');
   const [modReason, setModReason] = useState('');
-
-  // فرم اعلان
   const [notifType, setNotifType] = useState('public');
   const [notifUser, setNotifUser] = useState('');
   const [notifTitle, setNotifTitle] = useState('');
   const [notifMessage, setNotifMessage] = useState('');
+  const [warnTarget, setWarnTarget] = useState(null);
+  const [warnMessage, setWarnMessage] = useState('');
 
   const refreshUsers = async () => {
     setLoadingUsers(true);
@@ -56,48 +58,52 @@ export default function Admin() {
     if (isAdmin) refreshUsers();
   }, [isAdmin]);
 
-  // ✅ تابع حذف امن
+  // ✅ حذف امن (با قوانین مالک)
   const handleDelete = async (targetUser) => {
-    // جلوگیری از حذف owner
-    if (targetUser.is_owner) {
-      alert('❌ مالک سیستم قابل حذف نیست!');
-      return;
-    }
-    // جلوگیری از حذف خود
-    if (targetUser.id === user.id) {
-      alert('❌ نمی‌توانید حساب خودتان را حذف کنید!');
-      return;
-    }
-    // ادمین عادی نمی‌تواند ادمین دیگر را حذف کند
-    if (targetUser.role === 'admin' && !isOwner) {
-      alert('❌ فقط مالک می‌تواند ادمین‌ها را حذف کند!');
-      return;
-    }
-    if (confirm(`آیا از حذف کاربر "${targetUser.username}" مطمئن هستید؟\n\nتوجه: این عمل غیرقابل بازگشت است.`)) {
+    if (targetUser.is_owner) return alert('❌ مالک سیستم قابل حذف نیست!');
+    if (targetUser.id === user.id) return alert('❌ نمی‌توانید حساب خودتان را حذف کنید!');
+    if (targetUser.role === 'admin' && !isOwner) return alert('❌ فقط مالک می‌تواند ادمین‌ها را حذف کند!');
+    if (confirm(`آیا از حذف کاربر "${targetUser.username}" مطمئن هستید؟`)) {
       const res = await deleteUser(targetUser.id);
-      if (res.ok) {
-        alert('✅ کاربر با موفقیت حذف شد');
-        refreshUsers();
-      } else {
-        alert('❌ خطا: ' + res.error);
-      }
+      if (res.ok) { alert('✅ کاربر با موفقیت حذف شد'); refreshUsers(); }
+      else alert('❌ خطا: ' + res.error);
     }
   };
 
-  const handlePromote = async (targetUser) => {
-    if (targetUser.deleted_at) {
-      alert('❌ این کاربر حذف شده است');
-      return;
-    }
-    if (confirm(`آیا می‌خواهید "${targetUser.username}" را به ادمین ارتقا دهید؟`)) {
-      const res = await promoteUser(targetUser.id);
-      if (res.ok) {
-        alert('✅ ارتقا با موفقیت انجام شد');
-        refreshUsers();
-      } else {
-        alert('❌ خطا: ' + res.error);
-      }
-    }
+  // ✅ ارتقا با تابع جدید (فقط مالک)
+  const handlePromote = async (t) => {
+    if (t.deleted_at) return alert('❌ این کاربر حذف شده است');
+    if (!confirm(`آیا می‌خواهید "${t.username}" را به ادمین ارتقا دهید؟`)) return;
+    const { data, error } = await supabase.rpc('admin_set_role', { p_user_id: t.id, p_role: 'admin' });
+    if (error) return alert('❌ خطا: ' + error.message);
+    if (data && data.ok === false) return alert('❌ ' + data.error);
+    alert('✅ ارتقا با موفقیت انجام شد');
+    refreshUsers();
+  };
+
+  // ✅ عزل ادمین (فقط مالک)
+  const handleDemote = async (t) => {
+    if (!confirm(`آیا می‌خواهید "${t.username}" را از ادمینی عزل کنید؟`)) return;
+    const { data, error } = await supabase.rpc('admin_set_role', { p_user_id: t.id, p_role: 'user' });
+    if (error) return alert('❌ خطا: ' + error.message);
+    if (data && data.ok === false) return alert('❌ ' + data.error);
+    alert('✅ کاربر از ادمینی عزل شد');
+    refreshUsers();
+  };
+
+  // ✅ ارسال اخطار → اعلانات کاربر
+  const handleWarn = async () => {
+    if (!warnTarget || !warnMessage.trim()) return;
+    const { data, error } = await supabase.rpc('admin_warn_user', {
+      p_user_id: warnTarget.id,
+      p_message: warnMessage.trim(),
+    });
+    if (error) return alert('❌ خطا: ' + error.message);
+    if (data && data.ok === false) return alert('❌ ' + data.error);
+    alert('✅ اخطار ارسال شد و به اعلانات کاربر رفت');
+    setWarnTarget(null);
+    setWarnMessage('');
+    refreshUsers();
   };
 
   const applyModeration = async () => {
@@ -108,42 +114,36 @@ export default function Admin() {
     else if (modAction === 'ban_temp') { status = 'banned'; hours = Number(modHours) || 1; }
     else if (modAction === 'block') status = 'blocked';
     else if (modAction === 'block_temp') { status = 'blocked'; hours = Number(modHours) || 1; }
-
     const res = await moderateUser(modTarget.id, { status, hours, reason: modReason || null });
-    if (res.ok) {
-      alert('✅ اعمال شد');
-      setModTarget(null);
-      setModReason('');
-      refreshUsers();
-    } else alert('❌ خطا: ' + res.error);
+    if (res.ok) { alert('✅ اعمال شد'); setModTarget(null); setModReason(''); refreshUsers(); }
+    else alert('❌ خطا: ' + res.error);
   };
 
   const handleSendNotification = async () => {
-    if (!notifTitle.trim() || !notifMessage.trim()) {
-      alert('عنوان و متن را پر کنید');
-      return;
-    }
-    if (notifType === 'private' && !notifUser) {
-      alert('کاربر را انتخاب کنید');
-      return;
-    }
+    if (!notifTitle.trim() || !notifMessage.trim()) return alert('عنوان و متن را پر کنید');
+    if (notifType === 'private' && !notifUser) return alert('کاربر را انتخاب کنید');
     const res = await sendNotification({
       userId: notifType === 'private' ? notifUser : null,
       title: notifTitle,
       message: notifMessage,
       type: notifType,
     });
-    if (res.ok) {
-      alert('✅ اعلان ارسال شد!');
-      setNotifTitle('');
-      setNotifMessage('');
-      setNotifUser('');
-    } else alert('❌ خطا: ' + res.error);
+    if (res.ok) { alert('✅ اعلان ارسال شد!'); setNotifTitle(''); setNotifMessage(''); setNotifUser(''); }
+    else alert('❌ خطا: ' + res.error);
   };
 
   const totalUsers = users.length;
   const adminCount = users.filter((u) => u.role === 'admin').length;
   const bannedCount = users.filter((u) => u.status && u.status !== 'active').length;
+
+  const tabs = [
+    { id: 'overview', label: '📊 آمار' },
+    { id: 'users', label: '👥 کاربران' },
+    { id: 'reports', label: '🚨 گزارش‌ها' },
+    { id: 'tickets', label: '🎫 تیکت‌ها' },
+    { id: 'stream', label: '🎛 استریم' },
+    { id: 'notify', label: '📢 اعلانات' },
+  ];
 
   return (
     <PageWrapper>
@@ -161,11 +161,7 @@ export default function Admin() {
 
         {/* تب‌ها */}
         <div className="flex gap-2 overflow-x-auto">
-          {[
-            { id: 'overview', label: '📊 آمار' },
-            { id: 'users', label: '👥 کاربران' },
-            { id: 'notify', label: '📢 اعلانات' },
-          ].map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -185,7 +181,7 @@ export default function Admin() {
             <StatBox icon="👥" label="کل کاربران" value={loadingUsers ? '...' : totalUsers} />
             <StatBox icon="👑" label="ادمین‌ها" value={loadingUsers ? '...' : adminCount} accent="from-fuchsia-500 to-purple-500" />
             <StatBox icon="🚫" label="مسدود/بن" value={loadingUsers ? '...' : bannedCount} accent="from-rose-500 to-red-600" />
-            <StatBox icon="📺" label="استریم فعال" value={1} accent="from-amber-400 to-orange-500" />
+            <StatBox icon="⚠️" label="کل اخطارها" value={loadingUsers ? '...' : users.reduce((s, u) => s + (u.warnings || 0), 0)} accent="from-amber-400 to-orange-500" />
           </div>
         )}
 
@@ -219,6 +215,7 @@ export default function Admin() {
                             <p className="text-white">
                               {u.username}
                               {u.is_owner && <span className="mr-2 text-amber-400">👑</span>}
+                              {u.warnings > 0 && <Badge color="amber">⚠ {u.warnings}</Badge>}
                             </p>
                             {u.id === user.id && <span className="text-[10px] text-cyan-400">(خودم)</span>}
                           </div>
@@ -233,33 +230,26 @@ export default function Admin() {
                             {statusInfo[u.status || 'active'].label}
                           </Badge>
                           {u.restrict_until && u.status !== 'active' && (
-                            <p className="mt-1 text-[10px] text-slate-500">
-                              تا: {new Date(u.restrict_until).toLocaleString('fa-IR')}
-                            </p>
+                            <p className="mt-1 text-[10px] text-slate-500">تا: {new Date(u.restrict_until).toLocaleString('fa-IR')}</p>
                           )}
                           {u.restrict_reason && u.status !== 'active' && (
-                            <p className="mt-1 text-[10px] text-slate-500">
-                              دلیل: {u.restrict_reason}
-                            </p>
+                            <p className="mt-1 text-[10px] text-slate-500">دلیل: {u.restrict_reason}</p>
                           )}
                         </td>
                         <td className="py-3">
                           <div className="flex flex-wrap gap-2">
-                            {/* دکمه مدیریت - owner همیشه مدیریت همه را دارد، ادمین عادی owner را نمی‌تواند */}
                             {(!u.is_owner || isOwner) && !u.deleted_at && (
-                              <NeonButton size="sm" variant="ghost" onClick={() => setModTarget(u)}>
-                                🛡 مدیریت
-                              </NeonButton>
+                              <NeonButton size="sm" variant="ghost" onClick={() => setModTarget(u)}>🛡 مدیریت</NeonButton>
                             )}
-                            
-                            {/* دکمه ارتقا - فقط برای کاربران عادی */}
+                            {u.id !== user.id && !u.is_owner && !u.deleted_at && (
+                              <NeonButton size="sm" variant="ghost" onClick={() => setWarnTarget(u)}>⚠ اخطار</NeonButton>
+                            )}
                             {u.role !== 'admin' && !u.deleted_at && (
-                              <NeonButton size="sm" variant="ghost" onClick={() => handlePromote(u)}>
-                                ⬆ ارتقا
-                              </NeonButton>
+                              <NeonButton size="sm" variant="ghost" onClick={() => handlePromote(u)}>⬆ ارتقا</NeonButton>
                             )}
-                            
-                            {/* دکمه حذف - با محدودیت‌ها */}
+                            {u.role === 'admin' && !u.is_owner && isOwner && (
+                              <NeonButton size="sm" variant="ghost" onClick={() => handleDemote(u)}>⬇ عزل</NeonButton>
+                            )}
                             {!u.is_owner && u.id !== user.id && !u.deleted_at && (
                               <NeonButton
                                 size="sm"
@@ -271,8 +261,6 @@ export default function Admin() {
                                 🗑 حذف
                               </NeonButton>
                             )}
-                            
-                            {/* برچسب مالک */}
                             {u.is_owner && !isOwner && (
                               <span className="px-2 py-1 text-[10px] font-bold text-amber-400">👑 مالک</span>
                             )}
@@ -287,6 +275,15 @@ export default function Admin() {
           </GlassCard>
         )}
 
+        {/* گزارش‌ها */}
+        {activeTab === 'reports' && <ReportsTab />}
+
+        {/* تیکت‌ها */}
+        {activeTab === 'tickets' && <TicketsTab />}
+
+        {/* کنترل استریم */}
+        {activeTab === 'stream' && <StreamControlTab />}
+
         {/* اعلانات */}
         {activeTab === 'notify' && (
           <GlassCard className="p-6">
@@ -297,9 +294,7 @@ export default function Admin() {
                   onClick={() => setNotifType('public')}
                   className={cn(
                     'flex-1 rounded-xl px-4 py-3 font-display text-xs font-bold transition-colors',
-                    notifType === 'public'
-                      ? 'border border-cyan-400/40 bg-cyan-400/10 text-cyan-300'
-                      : 'glass text-slate-400'
+                    notifType === 'public' ? 'border border-cyan-400/40 bg-cyan-400/10 text-cyan-300' : 'glass text-slate-400'
                   )}
                 >
                   📢 عمومی (همه)
@@ -308,15 +303,12 @@ export default function Admin() {
                   onClick={() => setNotifType('private')}
                   className={cn(
                     'flex-1 rounded-xl px-4 py-3 font-display text-xs font-bold transition-colors',
-                    notifType === 'private'
-                      ? 'border border-fuchsia-400/40 bg-fuchsia-400/10 text-fuchsia-300'
-                      : 'glass text-slate-400'
+                    notifType === 'private' ? 'border border-fuchsia-400/40 bg-fuchsia-400/10 text-fuchsia-300' : 'glass text-slate-400'
                   )}
                 >
                   📨 خصوصی
                 </button>
               </div>
-
               {notifType === 'private' && (
                 <div>
                   <label className="mb-1.5 block font-display text-xs uppercase tracking-wider text-slate-400">گیرنده</label>
@@ -332,7 +324,6 @@ export default function Admin() {
                   </select>
                 </div>
               )}
-
               <div>
                 <label className="mb-1.5 block font-display text-xs uppercase tracking-wider text-slate-400">عنوان</label>
                 <input
@@ -375,10 +366,7 @@ export default function Admin() {
               className="glass-strong w-full max-w-md rounded-2xl p-6"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-display text-lg font-bold text-white">
-                مدیریت: {modTarget.username}
-              </h3>
-
+              <h3 className="font-display text-lg font-bold text-white">مدیریت: {modTarget.username}</h3>
               <div className="mt-5 space-y-3">
                 <div>
                   <label className="mb-1.5 block font-display text-xs uppercase tracking-wider text-slate-400">نوع عمل</label>
@@ -394,7 +382,6 @@ export default function Admin() {
                     <option value="unban">✅ رفع محدودیت</option>
                   </select>
                 </div>
-
                 {(modAction === 'ban_temp' || modAction === 'block_temp') && (
                   <div>
                     <label className="mb-1.5 block font-display text-xs uppercase tracking-wider text-slate-400">مدت (ساعت)</label>
@@ -407,7 +394,6 @@ export default function Admin() {
                     />
                   </div>
                 )}
-
                 <div>
                   <label className="mb-1.5 block font-display text-xs uppercase tracking-wider text-slate-400">دلیل (نمایش به کاربر)</label>
                   <input
@@ -418,10 +404,44 @@ export default function Admin() {
                   />
                 </div>
               </div>
-
               <div className="mt-6 flex gap-3">
                 <NeonButton className="flex-1" onClick={applyModeration}>اعمال</NeonButton>
                 <NeonButton variant="ghost" className="flex-1" onClick={() => setModTarget(null)}>انصراف</NeonButton>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal اخطار */}
+      <AnimatePresence>
+        {warnTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] grid place-items-center bg-black/80 p-4 backdrop-blur-sm"
+            onClick={() => setWarnTarget(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="glass-strong w-full max-w-md rounded-2xl p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-display text-lg font-bold text-white">⚠️ ارسال اخطار به: {warnTarget.username}</h3>
+              <p className="mt-2 text-xs text-slate-400">اخطار به اعلانات کاربر می‌رود و شمارنده اخطارهایش +۱ می‌شود.</p>
+              <textarea
+                value={warnMessage}
+                onChange={(e) => setWarnMessage(e.target.value)}
+                rows={3}
+                placeholder="متن اخطار..."
+                className="mt-4 w-full resize-none rounded-xl border border-white/10 bg-slate-950/50 p-3 text-sm text-white outline-none focus:border-amber-400/50"
+              />
+              <div className="mt-4 flex gap-3">
+                <NeonButton className="flex-1" onClick={handleWarn}>ارسال اخطار</NeonButton>
+                <NeonButton variant="ghost" className="flex-1" onClick={() => setWarnTarget(null)}>انصراف</NeonButton>
               </div>
             </motion.div>
           </motion.div>
