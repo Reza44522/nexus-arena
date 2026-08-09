@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, ShieldX } from 'lucide-react';
 import * as AuthModule from './context/AuthContext';
 import { supabase } from './lib/supabase';
+import Profile from './pages/Profile';
 
 // layout
 import Navbar from './components/layout/Navbar';
@@ -198,6 +199,7 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/friends" element={<ProtectedRoute><Friends /></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/profile/:id" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
       <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
       <Route path="*" element={<NotFound />} />

@@ -1,24 +1,15 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Trophy,
-  Target,
-  TrendingUp,
-  Zap,
-  Plus,
-  Gamepad2,
-  Clock,
-  Swords,
-  Award,
-  Flame,
+  Trophy, Target, TrendingUp, Zap, Plus, Gamepad2, Clock, Swords, Award, Flame, User,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { cn } from '../utils/cn';
 
-// 🔹 XP لازم برای هر سطح (همون فرمول داخل تریگر SQL)
 const xpForLevel = (level) => level * 100;
 
-// 🔹 لیست بازی‌های قابل انتخاب (بعداً می‌تونیم از stream_settings بگیریم)
 const GAME_OPTIONS = [
   { id: 'mafia', name: 'مافیا', icon: '🕵️' },
   { id: 'valorant', name: 'Valorant', icon: '🔫' },
@@ -29,63 +20,69 @@ const GAME_OPTIONS = [
   { id: 'other', name: 'سایر', icon: '🎮' },
 ];
 
-// 🔹 رنگ‌ها بر اساس نتیجه (برای نمایش در لیست)
 const RESULT_COLORS = {
   win: 'text-cyan-400 border-cyan-400/40 bg-cyan-500/10 shadow-glow-cyan',
   loss: 'text-red-400 border-red-400/40 bg-red-500/10 shadow-[0_0_12px_rgba(239,68,68,0.4)]',
   draw: 'text-yellow-400 border-yellow-400/40 bg-yellow-500/10 shadow-[0_0_12px_rgba(234,179,8,0.4)]',
 };
 
-const RESULT_LABELS = {
-  win: 'پیروزی',
-  loss: 'شکست',
-  draw: 'مساوی',
-};
-
+const RESULT_LABELS = { win: 'پیروزی', loss: 'شکست', draw: 'مساوی' };
 const XP_MAP = { win: 50, draw: 20, loss: 10 };
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
 
-  const [stats, setStats] = useState({
-    xp: 0,
-    level: 1,
-    wins: 0,
-    losses: 0,
-    draws: 0,
-    matches_played: 0,
-  });
-
+  const [stats, setStats] = useState({ xp: 0, level: 1, wins: 0, losses: 0, draws: 0, matches_played: 0 });
   const [recentMatches, setRecentMatches] = useState([]);
+  const [equipped, setEquipped] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [form, setForm] = useState({ game_name: 'mafia', result: 'win', duration_minutes: 30, notes: '' });
 
-  // 🔹 فرم ثبت match جدید
-  const [form, setForm] = useState({
-    game_name: 'mafia',
-    result: 'win',
-    duration_minutes: 30,
-    notes: '',
-  });
-
-  // 🔹 محاسبه درصد پیشرفت XP
   const xpForNext = xpForLevel(stats.level);
   const progressPercent = Math.min(100, (stats.xp / xpForNext) * 100);
 
-  // 🔹 گرفتن آمار و matchهای اخیر
+  // ✅ آیتم‌های فعال کاربر (قاب/تایتل/بج)
+  const loadEquipped = async () => {
+    const { data, error } = await supabase
+      .from('user_inventory')
+      .select('*, item:store_items(*)')
+      .eq('user_id', user.id)
+      .eq('is_equipped', true);
+
+    if (!error) {
+      setEquipped(data || []);
+      return;
+    }
+    // fallback اگه join خطا داد
+    const plain = await supabase.from('user_inventory').select('*').eq('user_id', user.id).eq('is_equipped', true);
+    const rows = plain.data || [];
+    const ids = rows.map((r) => r.item_id).filter(Boolean);
+    if (ids.length) {
+      const { data: items } = await supabase.from('store_items').select('*').in('id', ids);
+      const map = {};
+      (items || []).forEach((it) => (map[it.id] = it));
+      rows.forEach((r) => (r.item = map[r.item_id]));
+    }
+    setEquipped(rows);
+  };
+
   useEffect(() => {
-    if (!profile) return;
-    setStats({
-      xp: profile.xp ?? 0,
-      level: profile.level ?? 1,
-      wins: profile.wins ?? 0,
-      losses: profile.losses ?? 0,
-      draws: profile.draws ?? 0,
-      matches_played: profile.matches_played ?? 0,
-    });
+    if (!user?.id) return;
+    if (profile) {
+      setStats({
+        xp: profile.xp ?? 0,
+        level: profile.level ?? 1,
+        wins: profile.wins ?? 0,
+        losses: profile.losses ?? 0,
+        draws: profile.draws ?? 0,
+        matches_played: profile.matches_played ?? 0,
+      });
+    }
     loadRecentMatches();
-  }, [profile]);
+    loadEquipped();
+  }, [profile, user?.id]);
 
   const loadRecentMatches = async () => {
     setLoading(true);
@@ -96,7 +93,6 @@ export default function Dashboard() {
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
         .limit(10);
-
       if (error) throw error;
       setRecentMatches(data || []);
     } catch (err) {
@@ -106,12 +102,10 @@ export default function Dashboard() {
     }
   };
 
-  // 🔹 ثبت match جدید
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setSuccessMsg('');
-
     try {
       const xp = XP_MAP[form.result] || 0;
       const { error } = await supabase.from('matches').insert({
@@ -122,32 +116,22 @@ export default function Dashboard() {
         duration_minutes: Number(form.duration_minutes) || 0,
         notes: form.notes.trim(),
       });
-
       if (error) throw error;
-
       setSuccessMsg(`✅ ثبت شد! +${xp} XP دریافتی`);
 
-      // 🔹 رفرش کردن آمار (چون تریگر داخل دیتابیس پروفایل رو آپدیت کرد)
       const { data: updatedProfile } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
-
       if (updatedProfile) {
         setStats({
-          xp: updatedProfile.xp,
-          level: updatedProfile.level,
-          wins: updatedProfile.wins,
-          losses: updatedProfile.losses,
-          draws: updatedProfile.draws,
-          matches_played: updatedProfile.matches_played,
+          xp: updatedProfile.xp, level: updatedProfile.level,
+          wins: updatedProfile.wins, losses: updatedProfile.losses,
+          draws: updatedProfile.draws, matches_played: updatedProfile.matches_played,
         });
       }
-
       await loadRecentMatches();
-
-      // 🔹 پاک کردن success message بعد از ۳ ثانیه
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       alert('❌ خطا: ' + err.message);
@@ -156,15 +140,15 @@ export default function Dashboard() {
     }
   };
 
+  const equippedFrame = equipped.find((v) => v.item?.type === 'frame');
+  const equippedTitle = equipped.find((v) => v.item?.type === 'title');
+  const equippedBadge = equipped.find((v) => v.item?.type === 'badge');
+
   return (
     <div className="min-h-screen pt-24 pb-12 px-4">
       <div className="max-w-6xl mx-auto">
-        {/* 🔹 Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <h1 className="font-display text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 to-fuchsia-500 bg-clip-text text-transparent mb-2">
             داشبورد بازیکن
           </h1>
@@ -173,7 +157,53 @@ export default function Dashboard() {
           </p>
         </motion.div>
 
-        {/* 🔹 کارت سطح و XP */}
+        {/* ─────────── ✅ بخش پروفایل (جدید) ─────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-strong mb-6 rounded-2xl border border-fuchsia-500/20 p-5"
+        >
+          <div className="flex flex-wrap items-center gap-4">
+            {/* آواتار با قاب فعال */}
+            <div
+              className={cn(
+                'grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br text-xl font-black text-slate-950 ring-4',
+                equippedFrame
+                  ? cn(equippedFrame.item.accent, 'ring-white/30')
+                  : 'from-cyan-400 to-fuchsia-500 ring-transparent'
+              )}
+            >
+              {(profile?.username || user.email || '?').slice(0, 2).toUpperCase()}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-lg font-bold text-white">
+                {profile?.username || user.email}
+                {equippedBadge && (
+                  <span className="mr-2 align-middle" title={equippedBadge.item.name}>
+                    {equippedBadge.item.icon}
+                  </span>
+                )}
+              </p>
+              {equippedTitle ? (
+                <span className={cn('inline-block rounded-lg bg-gradient-to-r px-2 py-0.5 text-[10px] font-bold text-slate-950', equippedTitle.item.accent)}>
+                  {equippedTitle.item.icon} {equippedTitle.item.name.replace('تایتل: ', '')}
+                </span>
+              ) : (
+                <p className="text-xs text-slate-500">هنوز تایتلی نداری — از فروشگاه بخر! 🛒</p>
+              )}
+            </div>
+
+            <Link
+              to={`/profile/${user.id}`}
+              className="flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-bold text-cyan-300 transition hover:bg-cyan-400/20"
+            >
+              <User size={15} /> پروفایل من
+            </Link>
+          </div>
+        </motion.div>
+
+        {/* کارت سطح و XP */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -186,12 +216,9 @@ export default function Dashboard() {
               </div>
               <div>
                 <div className="text-sm text-white/50">سطح شما</div>
-                <div className="font-display text-3xl font-bold text-cyan-400">
-                  {stats.level}
-                </div>
+                <div className="font-display text-3xl font-bold text-cyan-400">{stats.level}</div>
               </div>
             </div>
-
             <div className="text-right">
               <div className="text-sm text-white/50">XP فعلی</div>
               <div className="font-display text-2xl font-bold text-fuchsia-400">
@@ -199,8 +226,6 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
-          {/* Progress Bar */}
           <div className="relative h-3 bg-black/40 rounded-full overflow-hidden border border-white/10">
             <motion.div
               initial={{ width: 0 }}
@@ -209,18 +234,16 @@ export default function Dashboard() {
               className="absolute top-0 left-0 h-full bg-gradient-to-r from-cyan-400 to-fuchsia-500 rounded-full shadow-glow-cyan"
             />
           </div>
-          <div className="text-xs text-white/40 mt-2 text-center">
-            {Math.floor(xpForNext - stats.xp)} XP تا سطح بعدی
-          </div>
+          <div className="text-xs text-white/40 mt-2 text-center">{Math.floor(xpForNext - stats.xp)} XP تا سطح بعدی</div>
         </motion.div>
 
-        {/* 🔹 کارت‌های آماری */}
+        {/* کارت‌های آماری */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'کل مسابقات', value: stats.matches_played, icon: Gamepad2, color: 'cyan' },
-            { label: 'پیروزی‌ها', value: stats.wins, icon: Trophy, color: 'green' },
-            { label: 'شکست‌ها', value: stats.losses, icon: Swords, color: 'red' },
-            { label: 'مساوی', value: stats.draws, icon: Target, color: 'yellow' },
+            { label: 'کل مسابقات', value: stats.matches_played, icon: Gamepad2, color: 'text-cyan-400' },
+            { label: 'پیروزی‌ها', value: stats.wins, icon: Trophy, color: 'text-green-400' },
+            { label: 'شکست‌ها', value: stats.losses, icon: Swords, color: 'text-red-400' },
+            { label: 'مساوی', value: stats.draws, icon: Target, color: 'text-yellow-400' },
           ].map((item, i) => (
             <motion.div
               key={item.label}
@@ -230,19 +253,17 @@ export default function Dashboard() {
               className="glass rounded-xl p-4 border border-white/10 hover:border-cyan-500/40 transition-all"
             >
               <div className="flex items-center justify-between mb-2">
-                <item.icon className={`w-5 h-5 text-${item.color}-400`} />
+                <item.icon className={`w-5 h-5 ${item.color}`} />
                 <span className="text-xs text-white/40">{item.label}</span>
               </div>
-              <div className="font-display text-2xl font-bold text-white">
-                {item.value}
-              </div>
+              <div className="font-display text-2xl font-bold text-white">{item.value}</div>
             </motion.div>
           ))}
         </div>
 
-        {/* 🔹 دو ستون: فرم + لیست matchها */}
+        {/* دو ستون: فرم + لیست matchها */}
         <div className="grid md:grid-cols-2 gap-6">
-          {/* 🔹 فرم ثبت match جدید */}
+          {/* فرم ثبت match جدید */}
           <motion.form
             onSubmit={handleSubmit}
             initial={{ opacity: 0, x: -20 }}
@@ -251,12 +272,9 @@ export default function Dashboard() {
           >
             <div className="flex items-center gap-2 mb-4">
               <Flame className="w-5 h-5 text-fuchsia-400" />
-              <h2 className="font-display text-xl font-bold text-white">
-                ثبت مسابقه جدید
-              </h2>
+              <h2 className="font-display text-xl font-bold text-white">ثبت مسابقه جدید</h2>
             </div>
 
-            {/* Game */}
             <label className="block text-sm text-white/60 mb-2">🎮 بازی</label>
             <select
               value={form.game_name}
@@ -264,13 +282,10 @@ export default function Dashboard() {
               className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white mb-4 focus:outline-none focus:border-cyan-400"
             >
               {GAME_OPTIONS.map((g) => (
-                <option key={g.id} value={g.id} className="bg-slate-900">
-                  {g.icon} {g.name}
-                </option>
+                <option key={g.id} value={g.id} className="bg-slate-900">{g.icon} {g.name}</option>
               ))}
             </select>
 
-            {/* Result */}
             <label className="block text-sm text-white/60 mb-2">🏆 نتیجه</label>
             <div className="grid grid-cols-3 gap-2 mb-4">
               {['win', 'draw', 'loss'].map((r) => (
@@ -279,9 +294,7 @@ export default function Dashboard() {
                   type="button"
                   onClick={() => setForm({ ...form, result: r })}
                   className={`py-2 rounded-lg border font-semibold text-sm transition-all ${
-                    form.result === r
-                      ? RESULT_COLORS[r]
-                      : 'border-white/10 text-white/50 hover:border-white/30'
+                    form.result === r ? RESULT_COLORS[r] : 'border-white/10 text-white/50 hover:border-white/30'
                   }`}
                 >
                   {RESULT_LABELS[r]}
@@ -289,7 +302,6 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Duration */}
             <label className="block text-sm text-white/60 mb-2">⏱️ مدت (دقیقه)</label>
             <input
               type="number"
@@ -299,7 +311,6 @@ export default function Dashboard() {
               className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white mb-4 focus:outline-none focus:border-cyan-400"
             />
 
-            {/* Notes */}
             <label className="block text-sm text-white/60 mb-2">📝 یادداشت (اختیاری)</label>
             <textarea
               value={form.notes}
@@ -309,12 +320,9 @@ export default function Dashboard() {
               className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white mb-4 focus:outline-none focus:border-cyan-400 resize-none"
             />
 
-            {/* XP Preview */}
             <div className="bg-fuchsia-500/10 border border-fuchsia-400/30 rounded-lg p-3 mb-4 text-center">
               <Zap className="inline w-4 h-4 text-fuchsia-400 ml-1" />
-              <span className="text-fuchsia-300 font-semibold">
-                XP دریافتی: +{XP_MAP[form.result]}
-              </span>
+              <span className="text-fuchsia-300 font-semibold">XP دریافتی: +{XP_MAP[form.result]}</span>
             </div>
 
             <button
@@ -322,11 +330,7 @@ export default function Dashboard() {
               disabled={submitting}
               className="w-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-white font-bold py-3 rounded-lg hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-glow-cyan"
             >
-              {submitting ? '⏳ در حال ثبت...' : (
-                <>
-                  <Plus className="w-5 h-5" /> ثبت مسابقه
-                </>
-              )}
+              {submitting ? '⏳ در حال ثبت...' : (<><Plus className="w-5 h-5" /> ثبت مسابقه</>)}
             </button>
 
             <AnimatePresence>
@@ -343,7 +347,7 @@ export default function Dashboard() {
             </AnimatePresence>
           </motion.form>
 
-          {/* 🔹 لیست matchهای اخیر */}
+          {/* لیست matchهای اخیر */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -351,9 +355,7 @@ export default function Dashboard() {
           >
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp className="w-5 h-5 text-cyan-400" />
-              <h2 className="font-display text-xl font-bold text-white">
-                ۱۰ مسابقه اخیر
-              </h2>
+              <h2 className="font-display text-xl font-bold text-white">۱۰ مسابقه اخیر</h2>
             </div>
 
             {loading ? (
@@ -377,20 +379,14 @@ export default function Dashboard() {
                       <div className="flex items-center gap-3">
                         <div className="text-2xl">{game?.icon || '🎮'}</div>
                         <div>
-                          <div className="font-semibold text-white text-sm">
-                            {game?.name || m.game_name}
-                          </div>
+                          <div className="font-semibold text-white text-sm">{game?.name || m.game_name}</div>
                           <div className="text-xs text-white/50 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {m.duration_minutes} دقیقه
+                            <Clock className="w-3 h-3" /> {m.duration_minutes} دقیقه
                           </div>
                         </div>
                       </div>
-
                       <div className="text-right">
-                        <div className="font-bold text-sm">
-                          {RESULT_LABELS[m.result]}
-                        </div>
+                        <div className="font-bold text-sm">{RESULT_LABELS[m.result]}</div>
                         <div className="text-xs opacity-70">+{m.xp_gained} XP</div>
                       </div>
                     </motion.div>

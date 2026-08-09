@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Crown, Trophy, Medal, Flame, Target, Star } from 'lucide-react';
 import PageWrapper from '../components/ui/PageWrapper';
@@ -57,9 +58,11 @@ function Avatar({ p, size = 'h-12 w-12 text-sm' }) {
 
 export default function Leaderboard() {
   const { user } = useAuth();
+    const navigate = useNavigate();
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('xp');
+
 
   const load = async () => {
     const { data, error } = await supabase
@@ -165,9 +168,11 @@ export default function Leaderboard() {
                     key={p.id}
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.12 }}
+                                        transition={{ delay: i * 0.12 }}
+                    onClick={() => navigate(`/profile/${p.id}`)}
+                    whileHover={{ scale: 1.03 }}
                     className={cn(
-                      'glass-strong relative rounded-2xl border p-6 text-center',
+                      'glass-strong relative cursor-pointer rounded-2xl border p-6 text-center',
                       s.border,
                       s.glow,
                       isFirst && 'md:-translate-y-4 md:p-8'
@@ -223,9 +228,10 @@ export default function Leaderboard() {
                       return (
                         <motion.tr
                           key={p.id}
-                          initial={{ opacity: 0 }}
+                                                    initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          className={cn('transition-colors hover:bg-white/5', isMe && 'bg-fuchsia-500/10')}
+                          onClick={() => navigate(`/profile/${p.id}`)}
+                          className={cn('cursor-pointer transition-colors hover:bg-white/5', isMe && 'bg-fuchsia-500/10')}
                         >
                           <td className="p-4 font-display font-bold text-slate-400">#{rank}</td>
                           <td className="p-4">

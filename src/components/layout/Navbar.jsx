@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LogOut, LayoutDashboard, Shield } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, Shield, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from './NotificationBell';
+import { supabase } from '../../lib/supabase';
 import { cn } from '../../utils/cn';
 
 const LINKS = [
@@ -18,6 +19,38 @@ const LINKS = [
     { to: '/support', label: 'Support' },
   { to: '/dashboard', label: 'Dashboard' },
 ];
+
+// 🪙 نشان سکه — زنده آپدیت می‌شه
+function CoinBadge() {
+  const { user } = useAuth();
+  const [coins, setCoins] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const load = async () => {
+      const { data } = await supabase.from('profiles').select('coins').eq('id', user.id).single();
+      setCoins(data?.coins ?? 0);
+    };
+    load();
+    const ch = supabase
+      .channel('nav-coins-' + user.id)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, (p) => {
+        setCoins(p.new?.coins ?? 0);
+      })
+      .subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [user?.id]);
+
+  return (
+    <Link
+      to="/store"
+      title="فروشگاه"
+      className="hidden items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-sm font-bold text-amber-300 transition hover:bg-amber-400/20 sm:flex"
+    >
+      🪙 {coins}
+    </Link>
+  );
+}
 
 export default function Navbar() {
   const auth = useAuth();
@@ -92,7 +125,8 @@ export default function Navbar() {
         </nav>
 
         {/* ✅ کنترل‌های سمت راست — با shrink-0 هرگز از صفحه بیرون نمی‌زنن */}
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+          {user && <CoinBadge />}
           {user && <NotificationBell />}
 
           {user ? (
@@ -120,6 +154,14 @@ export default function Navbar() {
                       </p>
                       <p className="truncate text-xs text-slate-500">{user.email}</p>
                     </div>
+
+                    <Link
+                      to={`/profile/${user.id}`}
+                      onClick={() => setDropOpen(false)}
+                      className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+                    >
+                      <User size={15} /> پروفایل من
+                    </Link>
 
                     <Link
                       to="/dashboard"

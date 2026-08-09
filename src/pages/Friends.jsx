@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, UserPlus, UserX, Flag, Wifi } from 'lucide-react';
 import PageWrapper from '../components/ui/PageWrapper';
@@ -11,6 +12,7 @@ import { cn } from '../utils/cn';
 
 export default function Friends() {
   const { user, reportUser } = useAuth();
+    const navigate = useNavigate();
   const {
     friends, requests, sentRequests, blocked, blockedBy, loading,
     sendRequest, respondRequest, removeFriend,
@@ -249,6 +251,9 @@ export default function Friends() {
                           </NeonButton>
                           <NeonButton size="sm" variant="ghost" className="flex-1" onClick={() => handleRemove(f.id, fp?.username)}>
                             Remove
+                          </NeonButton>
+                                                    <NeonButton size="sm" variant="ghost" onClick={() => navigate(`/profile/${fp?.id}`)} title="Profile">
+                            👤
                           </NeonButton>
                           <NeonButton size="sm" variant="ghost" onClick={() => openReport(fp)} title="Report">
                             <Flag size={14} />
