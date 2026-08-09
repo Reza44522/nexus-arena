@@ -232,7 +232,7 @@ export default function App() {
         {!isAuthPage && <Footer />}
 
         {/* 🎵 موزیک پلیر شناور — در همه صفحات فعال */}
-        {!isAuthPage && <MusicPlayer />}
+                <MusicPlayer />
       </div>
     </AuthProvider>
   );
