@@ -8,6 +8,7 @@ import SectionTitle from '../components/ui/SectionTitle';
 import Badge from '../components/ui/Badge';
 import CountUp from '../components/ui/CountUp';
 import GameCard from '../components/games/GameCard';
+import EarthGlobe from '../components/home/EarthGlobe';
 import { games } from '../data/games';
 
 const stats = [
@@ -140,6 +141,18 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* ---------------- Earth Globe ---------- */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <SectionTitle
+          center
+          tag="Global"
+          title="کره‌ی زمین NexusArena"
+          subtitle="جامعه‌ی ما مرز نمی‌شناسه — کره رو بچرخون، زوم کن و شهرهای جهان رو ببین!"
+        />
+        <EarthGlobe />
+      </section>
+
 
       {/* ---------- Features ---------- */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
