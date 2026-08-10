@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldAlert, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -6,78 +6,142 @@ import { useAuth } from '../context/AuthContext';
 import Badge from './ui/Badge';
 
 export default function WarningAlert() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [warning, setWarning] = useState(null);
   const [info, setInfo] = useState(null);
   const audioRef = useRef(null);
   const wasPlayingRef = useRef(false);
   const timerRef = useRef(null);
+  const lastWarningIdRef = useRef(null);
 
-  const close = () => {
+  const close = useCallback(() => {
     setWarning(null);
     audioRef.current?.pause();
     audioRef.current = null;
-    // ✅ اگه موزیک قبلاً در حال پخش بود، ادامه بده
+    // ادامه موزیک اگر قبلاً در حال پخش بود
     if (wasPlayingRef.current) {
       window.dispatchEvent(new CustomEvent('nexus-music-resume'));
     }
     wasPlayingRef.current = false;
-  };
+  }, []);
 
-  const trigger = async (n) => {
-    // ۱) موزیک در حال پخش بود؟
+  const trigger = useCallback(async (n) => {
+    // جلوگیری از تکرار
+    if (lastWarningIdRef.current === n.id) return;
+    lastWarningIdRef.current = n.id;
+
+    // ۱) ذخیره وضعیت پخش فعلی موزیک
     wasPlayingRef.current = window.__NEXUS_MUSIC_PLAYING__ === true;
 
-    // ۲) توقف موزیک
+    // ۲) توقف موزیک سراسری
     window.dispatchEvent(new CustomEvent('nexus-music-pause'));
 
-    // ۳) 🚨 صدای آژیر (فایل دلخواه تو: public/audio/warning-siren.mp3)
+    // ۳) 🚨 صدای آژیر
     try {
       audioRef.current?.pause();
       const a = new Audio('/audio/warning-siren.mp3');
       a.loop = true;
       a.volume = 0.9;
       audioRef.current = a;
-      a.play().catch(() => {});
+      a.play().catch(() => {
+        // اگر فایل نبود یا user interaction نیاز بود، بی‌صدا ادامه بده
+      });
     } catch {}
 
-    // ۴) مشخصات تازه‌ی کاربر
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('username, level, warnings, xp')
-      .eq('id', user.id)
-      .single();
-    setInfo(prof);
+    // ۴) دریافت مشخصات به‌روز کاربر از دیتابیس
+    if (user?.id) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('username, level, warnings, xp')
+        .eq('id', user.id)
+        .single();
+      setInfo(prof);
+    }
 
     // ۵) نمایش پاپ‌آپ
     setWarning(n);
 
-    // ۶) بسته‌شدن خودکار بعد از ۱۰ ثانیه
+    // ۶) ⏱️ بستن خودکار بعد از ۱۵ ثانیه (قبلاً ۱۰ ثانیه بود)
     clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => close(), 10000);
-  };
+    timerRef.current = setTimeout(() => close(), 15000);
+  }, [user?.id, close]);
 
-  // 📡 Realtime: فقط اخطارهای همین کاربر
+  // 📡 Realtime + Polling fallback
   useEffect(() => {
-    if (!user?.id) return;
+    // تا زمانی که auth در حال لود است صبر کن
+    if (!user?.id || authLoading) return;
 
+    console.log('🛡️ [WarningAlert] در حال راه‌اندازی subscription برای:', user.id);
+
+    // ✅ fallback: هنگام mount بررسی کن آیا اخطار خوانده‌نشده اخیر هست
+    const checkLatestWarning = async () => {
+      const { data: latest, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('type', 'warning')
+        .eq('read', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('⚠️ [WarningAlert] خطا در fetch اعلان:', error.message);
+        return;
+      }
+      // فقط اگر در ۳۰ ثانیه اخیر ساخته شده (جلوگیری از نمایش اخطار قدیمی)
+      if (latest && latest.id !== lastWarningIdRef.current) {
+        const created = new Date(latest.created_at).getTime();
+        const age = Date.now() - created;
+        if (age < 30000) {
+          console.log('🔔 [WarningAlert] اخطار خوانده‌نشده پیدا شد، نمایش:', latest);
+          trigger(latest);
+        }
+      }
+    };
+    checkLatestWarning();
+
+    // Realtime subscription — با چک کردن هر حالتی از payload
     const channel = supabase
       .channel('warning-alert-' + user.id)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
         (payload) => {
-          if (payload.new?.type === 'warning') trigger(payload.new);
+          console.log('📡 [WarningAlert] Realtime payload دریافت شد:', payload);
+
+          // بررسی robust: ممکن است payload.new null باشد (مشکل RLS)
+          const newItem = payload?.new;
+          if (!newItem) {
+            console.warn('⚠️ [WarningAlert] payload.new خالی است!');
+            return;
+          }
+
+          // اگر نوع اعلان warning بود، trigger کن
+          if (newItem.type === 'warning') {
+            trigger(newItem);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('📡 [WarningAlert] وضعیت subscription:', status, err || '');
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('❌ [WarningAlert] خطا در اتصال Realtime:', err);
+        }
+      });
 
     return () => {
+      console.log('🛑 [WarningAlert] در حال حذف subscription');
       supabase.removeChannel(channel);
       clearTimeout(timerRef.current);
       audioRef.current?.pause();
     };
-  }, [user?.id]);
+  }, [user?.id, authLoading, trigger]);
 
   return (
     <>
@@ -164,12 +228,12 @@ export default function WarningAlert() {
                   🔔 این اخطار به‌صورت دائم در بخش اعلانات شما ثبت شد.
                 </p>
 
-                {/* نوار شمارش ۱۰ ثانیه */}
+                {/* نوار شمارش معکوس ۱۵ ثانیه */}
                 <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
                   <motion.div
                     initial={{ width: '100%' }}
                     animate={{ width: '0%' }}
-                    transition={{ duration: 10, ease: 'linear' }}
+                    transition={{ duration: 15, ease: 'linear' }}
                     className="h-full bg-gradient-to-r from-red-500 to-amber-400"
                   />
                 </div>

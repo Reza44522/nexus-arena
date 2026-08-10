@@ -33,11 +33,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import NotFound from './pages/NotFound';
 
-const FoundProvider = AuthModule.AuthProvider || AuthModule.default;
-const AuthProvider =
-  FoundProvider && typeof FoundProvider === 'function'
-    ? FoundProvider
-    : ({ children }) => <>{children}</>;
+// ✅ فقط useAuth را از AuthModule می‌گیریم (نه AuthProvider)
 const useAuth = AuthModule.useAuth;
 
 /* ─────────── نگهبان حساب حذف‌شده ─────────── */
@@ -208,34 +204,33 @@ function AppRoutes() {
   );
 }
 
+// ✅ اصلاح: حذف <AuthProvider> تودرتو — فقط یکبار در main.jsx ساخته شده
 export default function App() {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
   return (
-    <AuthProvider>
-      <div className="relative flex min-h-screen flex-col">
-        {/* سیستم‌های کمکی */}
-        <BanChecker />
-        <DeletedAccountGuard />
-                <WarningAlert />
+    <div className="relative flex min-h-screen flex-col">
+      {/* سیستم‌های کمکی */}
+      <BanChecker />
+      <DeletedAccountGuard />
+      <WarningAlert />
 
-        {/* 🎨 انیمیشن‌های پس‌زمینه */}
-        <BackgroundFX />
-        <Particles count={50} />
+      {/* 🎨 انیمیشن‌های پس‌زمینه */}
+      <BackgroundFX />
+      <Particles count={50} />
 
-        <ScrollToTop />
-        <Navbar />
+      <ScrollToTop />
+      <Navbar />
 
-        <main className="flex-1">
-          <AppRoutes />
-        </main>
+      <main className="flex-1">
+        <AppRoutes />
+      </main>
 
-        {!isAuthPage && <Footer />}
+      {!isAuthPage && <Footer />}
 
-        {/* 🎵 موزیک پلیر شناور — در همه صفحات فعال */}
-                <MusicPlayer />
-      </div>
-    </AuthProvider>
+      {/* 🎵 موزیک پلیر شناور — در همه صفحات فعال */}
+      <MusicPlayer />
+    </div>
   );
 }
