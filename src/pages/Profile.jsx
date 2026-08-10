@@ -6,6 +6,7 @@ import PageWrapper from '../components/ui/PageWrapper';
 import GlassCard from '../components/ui/GlassCard';
 import Badge from '../components/ui/Badge';
 import NeonButton from '../components/ui/NeonButton';
+import AchievementsShowcase from '../components/profile/AchievementsShowcase';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/cn';
@@ -60,7 +61,6 @@ export default function Profile() {
         .select('*, item:store_items(*)')
         .eq('user_id', id)
         .eq('is_equipped', true);
-
       if (eqErr) {
         console.error('❌ equipped error:', eqErr.message);
         const plain = await supabase
@@ -152,7 +152,6 @@ export default function Profile() {
                     </div>
                     <span className={cn('absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-4 border-[#0b0b1c]', p.status === 'active' ? 'bg-green-400' : 'bg-slate-600')} />
                   </div>
-
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {/* ✅ اسم + بج فعال */}
@@ -168,20 +167,17 @@ export default function Profile() {
                       {p.role === 'admin' && !p.is_owner && <Badge color="magenta"><Shield size={12} /> ادمین</Badge>}
                       {isMe && <Badge color="cyan">(تو)</Badge>}
                     </div>
-
                     {/* ✅ تایتل فعال */}
                     {equippedTitle && (
                       <span className={cn('mt-1 inline-block rounded-lg bg-gradient-to-r px-2 py-0.5 text-[10px] font-bold text-slate-950', equippedTitle.item.accent)}>
                         {equippedTitle.item.icon} {equippedTitle.item.name.replace('تایتل: ', '')}
                       </span>
                     )}
-
                     <p className="mt-1 flex items-center gap-2 text-xs text-slate-400">
                       <Calendar size={12} /> عضو از {new Date(p.created_at).toLocaleDateString('fa-IR')}
                       <span className="text-slate-600">•</span>
                       {p.status === 'active' ? <span className="text-green-400">آنلاین</span> : 'آفلاین'}
                     </p>
-
                     <div className="mt-4 max-w-md">
                       <div className="mb-1 flex justify-between text-xs">
                         <span className="font-bold text-cyan-300">سطح {p.level}</span>
@@ -197,7 +193,6 @@ export default function Profile() {
                       </div>
                     </div>
                   </div>
-
                   {!isMe && (
                     <div className="shrink-0">
                       {relation === 'friend' ? (
@@ -268,6 +263,11 @@ export default function Profile() {
                 </div>
               )}
             </GlassCard>
+
+            {/* ─────────── 🏆 دستاوردها ─────────── */}
+            <div className="mt-6">
+              <AchievementsShowcase userId={id} />
+            </div>
           </>
         )}
       </div>

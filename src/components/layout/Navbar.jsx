@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LogOut, LayoutDashboard, Shield, User } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, Shield, User, LockKeyhole } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from './NotificationBell';
 import { supabase } from '../../lib/supabase';
@@ -17,7 +17,7 @@ const LINKS = [
   { to: '/news', label: 'News' },
   { to: '/stream', label: 'Stream' },
   { to: '/friends', label: 'Friends' },
-    { to: '/support', label: 'Support' },
+  { to: '/support', label: 'Support' },
   { to: '/dashboard', label: 'Dashboard' },
 ];
 
@@ -57,7 +57,6 @@ export default function Navbar() {
   const auth = useAuth();
   const { user, profile } = auth;
   const navigate = useNavigate();
-
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef(null);
@@ -126,11 +125,10 @@ export default function Navbar() {
         </nav>
 
         {/* ✅ کنترل‌های سمت راست — با shrink-0 هرگز از صفحه بیرون نمی‌زنن */}
-                        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <DateTimeBadge compact />
           {user && <CoinBadge />}
           {user && <NotificationBell />}
-
           {user ? (
             <div className="relative" ref={dropRef}>
               {/* آواتار — کلیک = منوی کشویی */}
@@ -141,7 +139,6 @@ export default function Navbar() {
               >
                 {(profile?.username || user.email || '?').slice(0, 1).toUpperCase()}
               </button>
-
               <AnimatePresence>
                 {dropOpen && (
                   <motion.div
@@ -156,7 +153,6 @@ export default function Navbar() {
                       </p>
                       <p className="truncate text-xs text-slate-500">{user.email}</p>
                     </div>
-
                     <Link
                       to={`/profile/${user.id}`}
                       onClick={() => setDropOpen(false)}
@@ -164,7 +160,6 @@ export default function Navbar() {
                     >
                       <User size={15} /> پروفایل من
                     </Link>
-
                     <Link
                       to="/dashboard"
                       onClick={() => setDropOpen(false)}
@@ -172,17 +167,24 @@ export default function Navbar() {
                     >
                       <LayoutDashboard size={15} /> Dashboard
                     </Link>
-
                     {isAdmin && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setDropOpen(false)}
-                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-fuchsia-300 hover:bg-white/10"
-                      >
-                        <Shield size={15} /> Admin Panel
-                      </Link>
+                      <>
+                        <Link
+                          to="/admin"
+                          onClick={() => setDropOpen(false)}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-fuchsia-300 hover:bg-white/10"
+                        >
+                          <Shield size={15} /> Admin Panel
+                        </Link>
+                        <Link
+                          to="/admin/lock"
+                          onClick={() => setDropOpen(false)}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-amber-300 hover:bg-white/10"
+                        >
+                          <LockKeyhole size={15} /> قفل سایت
+                        </Link>
+                      </>
                     )}
-
                     {/* ✅ دکمه خروج — همیشه دیده می‌شه */}
                     <button
                       onClick={handleLogout}
@@ -207,7 +209,6 @@ export default function Navbar() {
               </Link>
             </div>
           )}
-
           {/* همبرگری موبایل */}
           <button
             onClick={() => setMobileOpen((v) => !v)}
@@ -217,7 +218,6 @@ export default function Navbar() {
           </button>
         </div>
       </div>
-
       {/* منوی موبایل */}
       <AnimatePresence>
         {mobileOpen && (
@@ -244,17 +244,24 @@ export default function Navbar() {
                   {l.label}
                 </NavLink>
               ))}
-
               {isAdmin && (
-                <NavLink
-                  to="/admin"
-                  onClick={() => setMobileOpen(false)}
-                  className="block rounded-lg px-3 py-2 font-display text-sm uppercase tracking-wider text-fuchsia-300 hover:bg-white/5"
-                >
-                  Admin
-                </NavLink>
+                <>
+                  <NavLink
+                    to="/admin"
+                    onClick={() => setMobileOpen(false)}
+                    className="block rounded-lg px-3 py-2 font-display text-sm uppercase tracking-wider text-fuchsia-300 hover:bg-white/5"
+                  >
+                    Admin
+                  </NavLink>
+                  <NavLink
+                    to="/admin/lock"
+                    onClick={() => setMobileOpen(false)}
+                    className="block rounded-lg px-3 py-2 font-display text-sm uppercase tracking-wider text-amber-300 hover:bg-white/5"
+                  >
+                    قفل سایت
+                  </NavLink>
+                </>
               )}
-
               {!user && (
                 <div className="flex gap-2 pt-2">
                   <Link to="/login" onClick={() => setMobileOpen(false)} className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-center text-sm text-slate-300">
@@ -265,7 +272,6 @@ export default function Navbar() {
                   </Link>
                 </div>
               )}
-
               {user && (
                 <button
                   onClick={handleLogout}

@@ -9,6 +9,7 @@ import NeonButton from '../components/ui/NeonButton';
 import ReportsTab from '../components/admin/ReportsTab';
 import TicketsTab from '../components/admin/TicketsTab';
 import StreamControlTab from '../components/admin/StreamControlTab';
+import SiteLockControl from '../components/admin/SiteLockControl';
 import { cn } from '../utils/cn';
 
 const statusInfo = {
@@ -143,6 +144,7 @@ export default function Admin() {
     { id: 'tickets', label: '🎫 تیکت‌ها' },
     { id: 'stream', label: '🎛 استریم' },
     { id: 'notify', label: '📢 اعلانات' },
+    { id: 'lock', label: '🔒 قفل سایت' },
   ];
 
   return (
@@ -283,6 +285,9 @@ export default function Admin() {
 
         {/* کنترل استریم */}
         {activeTab === 'stream' && <StreamControlTab />}
+
+        {/* 🔒 قفل سایت */}
+        {activeTab === 'lock' && <SiteLockControl />}
 
         {/* اعلانات */}
         {activeTab === 'notify' && (

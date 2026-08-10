@@ -6,6 +6,7 @@ import PageWrapper from '../components/ui/PageWrapper';
 import NeonButton from '../components/ui/NeonButton';
 import SectionTitle from '../components/ui/SectionTitle';
 import Badge from '../components/ui/Badge';
+import DateTimeBadge from '../components/ui/DateTimeBadge';
 import CountUp from '../components/ui/CountUp';
 import GameCard from '../components/games/GameCard';
 import EarthGlobe from '../components/home/EarthGlobe';
