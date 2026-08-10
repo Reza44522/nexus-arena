@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import DateTimeBadge from '../ui/DateTimeBadge';
 import gsap from 'gsap';
 
 const MARQUEE_REPEAT = 3;
@@ -110,6 +111,10 @@ export default function Footer() {
           <MarqueeHalf hidden />
         </div>
       </div>
+
+<div className="mx-auto my-6 flex justify-center">
+  <DateTimeBadge />
+</div>
 
       <div className="border-t border-white/5 py-4 text-center font-display text-xs uppercase tracking-[0.3em] text-slate-500">
         © 2026 Nexus Arena — All rights reserved

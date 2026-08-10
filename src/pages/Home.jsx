@@ -61,6 +61,7 @@ export default function Home() {
       {/* ---------- HERO ---------- */}
       <section ref={heroRef} className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 pb-20 pt-10 sm:px-6 lg:grid-cols-2 lg:px-8">
         <div>
+          <DateTimeBadge />
           <span className="hero-tag inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 font-display text-[11px] uppercase tracking-[0.3em] text-cyan-300">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" /> Season 12 is live
           </span>

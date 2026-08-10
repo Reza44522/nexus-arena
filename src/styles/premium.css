@@ -1,0 +1,84 @@
+/* ═══════════ 🌟 NexusArena Premium UI — v2 ═══════════ */
+
+/* 🎨 رنگ انتخاب متن */
+::selection { background: rgba(34, 211, 238, 0.35); color: #fff; }
+
+/* 🌈 اسکرول‌بار نئونی */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0b0b1c; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #22d3ee, #a855f7);
+  border-radius: 8px;
+  border: 2px solid #0b0b1c;
+}
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #67e8f9, #f0abfc); }
+
+/* 💫 خط نئونی متحرک بالای سایت (همه‌ی صفحات) */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  z-index: 999;
+  background: linear-gradient(90deg, transparent, #22d3ee 20%, #e879f9 50%, #8b5cf6 80%, transparent);
+  background-size: 200% 100%;
+  animation: top-line 6s linear infinite;
+  pointer-events: none;
+}
+@keyframes top-line { to { background-position: 200% 0; } }
+
+/* 💎 حاشیه‌ی نئونی همیشه‌روشن روی همه‌ی کارت‌ها */
+.glass, .glass-strong { position: relative; }
+.glass::before, .glass-strong::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(34,211,238,.45), rgba(232,121,249,.18) 45%, rgba(139,92,246,.45));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: .5;
+  transition: opacity .35s ease;
+}
+.glass:hover::before, .glass-strong:hover::before { opacity: 1; }
+
+/* ✨ درخشش ملایم عنوان‌ها (امن — متن رو پنهان نمی‌کنه) */
+.font-display { text-shadow: 0 0 26px rgba(34, 211, 238, 0.3); }
+
+/* 🖱 بلندشدن کارت‌ها فقط روی دستگاه‌های با ماوس (بدون لگ موبایل) */
+@media (hover: hover) {
+  .glass, .glass-strong {
+    transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s;
+  }
+  .glass:hover, .glass-strong:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px -12px rgba(34,211,238,.25), 0 0 60px -20px rgba(232,121,249,.2);
+  }
+  button:active:not(:disabled) { transform: scale(.97); }
+}
+
+/* 🔘 ترنزیشن‌های سبک و هدفمند برای دکمه‌ها */
+button {
+  transition: box-shadow .3s, transform .3s, background-color .3s, color .3s, border-color .3s, opacity .3s;
+}
+
+/* 📥 درخشش فوکوس روی اینپوت‌ها */
+input:focus, textarea:focus, select:focus {
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.25), 0 0 24px rgba(34, 211, 238, 0.15) !important;
+}
+
+/* 🏆 کارت VIP با حاشیه‌ی طلایی چرخان (هر جا کلاس card-vip بذاری) */
+.card-vip { position: relative; overflow: hidden; }
+.card-vip::after {
+  content: '';
+  position: absolute;
+  inset: -60%;
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(251,191,36,.25) 60deg, transparent 120deg);
+  animation: vip-spin 7s linear infinite;
+  pointer-events: none;
+}
+@keyframes vip-spin { to { transform: rotate(360deg); } }

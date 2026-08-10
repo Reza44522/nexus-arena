@@ -52,6 +52,28 @@ export default function MusicPlayer() {
   const [visualBars, setVisualBars] = useState(Array(20).fill(0));
 
   const track = TRACKS[currentTrack];
+    // 🌐 اعلام وضعیت پخش به سیستم اخطار
+  useEffect(() => {
+    window.__NEXUS_MUSIC_PLAYING__ = isPlaying;
+  }, [isPlaying]);
+
+  //  کنترل از بیرون (توقف/ادامه توسط سیستم اخطار)
+  useEffect(() => {
+    const pause = () => {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+    };
+    const resume = () => {
+      audioRef.current?.play().catch(() => {});
+      setIsPlaying(true);
+    };
+    window.addEventListener('nexus-music-pause', pause);
+    window.addEventListener('nexus-music-resume', resume);
+    return () => {
+      window.removeEventListener('nexus-music-pause', pause);
+      window.removeEventListener('nexus-music-resume', resume);
+    };
+  }, []);
 
   // Play / Pause
   const togglePlay = async () => {

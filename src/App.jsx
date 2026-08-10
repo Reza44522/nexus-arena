@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, ShieldX } from 'lucide-react';
 import * as AuthModule from './context/AuthContext';
 import { supabase } from './lib/supabase';
+import WarningAlert from './components/WarningAlert';
 import Profile from './pages/Profile';
 
 // layout
@@ -217,6 +218,7 @@ export default function App() {
         {/* سیستم‌های کمکی */}
         <BanChecker />
         <DeletedAccountGuard />
+                <WarningAlert />
 
         {/* 🎨 انیمیشن‌های پس‌زمینه */}
         <BackgroundFX />

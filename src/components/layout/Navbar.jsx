@@ -5,6 +5,7 @@ import { Menu, X, LogOut, LayoutDashboard, Shield, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from './NotificationBell';
 import { supabase } from '../../lib/supabase';
+import DateTimeBadge from '../ui/DateTimeBadge';
 import { cn } from '../../utils/cn';
 
 const LINKS = [
@@ -125,7 +126,8 @@ export default function Navbar() {
         </nav>
 
         {/* ✅ کنترل‌های سمت راست — با shrink-0 هرگز از صفحه بیرون نمی‌زنن */}
-                <div className="ml-auto flex shrink-0 items-center gap-2">
+                        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <DateTimeBadge compact />
           {user && <CoinBadge />}
           {user && <NotificationBell />}
 

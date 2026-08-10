@@ -89,3 +89,181 @@
     background-position: 200% center;
   }
 }
+
+/* ═══════════ 🌟 NexusArena Design System — v4 ═══════════ */
+
+/* 🔤 فونت‌های جدید کل سایت */
+body {
+  font-family: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif !important;
+}
+.font-display, h1, h2, h3 {
+  font-family: 'Orbitron', 'Vazirmatn', sans-serif !important;
+}
+html { scroll-behavior: smooth; }
+
+::selection { background: rgba(34, 211, 238, 0.4); color: #fff; }
+
+/* 🌈 اسکرول‌بار نئونی */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0b0b1c; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #22d3ee, #a855f7);
+  border-radius: 8px;
+  border: 2px solid #0b0b1c;
+}
+
+/* 💫 خط نئونی متحرک بالای سایت */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  z-index: 999;
+  background: linear-gradient(90deg, transparent, #22d3ee 20%, #e879f9 50%, #8b5cf6 80%, transparent);
+  background-size: 200% 100%;
+  animation: top-line 6s linear infinite;
+  pointer-events: none;
+}
+@keyframes top-line { to { background-position: 200% 0; } }
+
+/* 🌌 شفق قطبی زنده روی پس‌زمینه‌ی همه‌ی صفحات */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -5;
+  pointer-events: none;
+  background:
+    radial-gradient(600px 320px at 85% 8%, rgba(232, 121, 249, 0.16), transparent 60%),
+    radial-gradient(520px 280px at 8% 28%, rgba(34, 211, 238, 0.14), transparent 60%),
+    radial-gradient(760px 380px at 50% 95%, rgba(139, 92, 246, 0.14), transparent 60%);
+  animation: aurora 12s ease-in-out infinite alternate;
+}
+@keyframes aurora {
+  from { opacity: 0.55; transform: translateY(0); }
+  to { opacity: 1; transform: translateY(-25px); }
+}
+
+/* 💎 کارت‌های شیشه‌ای رنگی */
+.glass, .glass-strong {
+  position: relative;
+  background: linear-gradient(165deg, rgba(34, 211, 238, 0.08) 0%, rgba(10, 12, 30, 0.78) 45%, rgba(232, 121, 249, 0.07) 100%) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 10px 34px rgba(2, 6, 23, 0.55);
+}
+
+/* حاشیه‌ی گرادیانی دور کارت‌ها */
+.glass::before, .glass-strong::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.5), rgba(232, 121, 249, 0.2) 45%, rgba(139, 92, 246, 0.5));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.6;
+  transition: opacity 0.35s;
+}
+.glass:hover::before, .glass-strong:hover::before { opacity: 1; }
+
+/* 🎯 گوشه‌های HUD سایبرپانک روی کارت‌های اصلی */
+.glass-strong::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(#22d3ee, #22d3ee) top left / 16px 2px,
+    linear-gradient(#22d3ee, #22d3ee) top left / 2px 16px,
+    linear-gradient(#e879f9, #e879f9) top right / 16px 2px,
+    linear-gradient(#e879f9, #e879f9) top right / 2px 16px,
+    linear-gradient(#e879f9, #e879f9) bottom left / 16px 2px,
+    linear-gradient(#e879f9, #e879f9) bottom left / 2px 16px,
+    linear-gradient(#22d3ee, #22d3ee) bottom right / 16px 2px,
+    linear-gradient(#22d3ee, #22d3ee) bottom right / 2px 16px;
+  background-repeat: no-repeat;
+  opacity: 0.45;
+  transition: opacity 0.3s;
+}
+.glass-strong:hover::after { opacity: 1; }
+
+@media (hover: hover) {
+  .glass, .glass-strong {
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s;
+  }
+  .glass:hover, .glass-strong:hover {
+    transform: translateY(-4px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09),
+      0 16px 48px -12px rgba(34, 211, 238, 0.3),
+      0 0 70px -20px rgba(232, 121, 249, 0.25);
+  }
+}
+
+/* 🧭 Navbar شیشه‌ای */
+header {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(5, 5, 14, 0.72) !important;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.18) !important;
+}
+
+/* زیرخط گرادیانی لینک‌های منو */
+nav a { position: relative; }
+nav a::after {
+  content: '';
+  position: absolute;
+  bottom: -6px; right: 0; left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #22d3ee, #e879f9);
+  transform: scaleX(0);
+  transition: transform 0.3s;
+}
+nav a:hover::after { transform: scaleX(1); }
+
+/* ✨ درخشش عنوان‌ها */
+.font-display { text-shadow: 0 0 28px rgba(34, 211, 238, 0.35); }
+
+/* ✨ افکت Shine روی همه‌ی دکمه‌ها */
+button {
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.3s, transform 0.3s, background-color 0.3s, color 0.3s, border-color 0.3s, opacity 0.3s;
+}
+button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+button:hover::after { left: 150%; }
+button:hover:not(:disabled) { box-shadow: 0 0 18px rgba(34, 211, 238, 0.25); }
+
+/* 📥 فوکوس اینپوت‌ها */
+input:focus, textarea:focus, select:focus {
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.3), 0 0 26px rgba(34, 211, 238, 0.2) !important;
+}
+
+/* 🏆 کارت VIP طلایی */
+.card-vip { position: relative; overflow: hidden; }
+.card-vip::after {
+  content: '';
+  position: absolute;
+  inset: -60%;
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(251, 191, 36, 0.3) 60deg, transparent 120deg);
+  animation: vip-spin 7s linear infinite;
+  pointer-events: none;
+}
+@keyframes vip-spin { to { transform: rotate(360deg); } }

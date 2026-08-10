@@ -46,21 +46,26 @@ export default function EarthGlobe() {
   const [labels, setLabels] = useState([...CONTINENTS]);
   const [GlobeComponent, setGlobeComponent] = useState(null);
   const [loadError, setLoadError] = useState(false);
+  const [inView, setInView] = useState(false); // ✅ فقط وقتی اسکرول شد
 
-  // لود کردن پویای react-globe.gl (اگه نصب نباشه، کرش نکنه)
+  // ✅ Lazy: تا به بخش کره نزدیک نشدی، هیچی لود نشه
   useEffect(() => {
-    let cancelled = false;
-    import('react-globe.gl')
-      .then((mod) => {
-        if (!cancelled) setGlobeComponent(() => mod.default);
-      })
-      .catch((err) => {
-        console.error('❌ Globe load error:', err);
-        if (!cancelled) setLoadError(true);
-      });
-    return () => { cancelled = true; };
+    const el = wrapRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '300px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
+  // سایز واکنش‌گرا
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
@@ -71,17 +76,28 @@ export default function EarthGlobe() {
     return () => ro.disconnect();
   }, []);
 
+  // لود پویای پکیج — فقط وقتی inView
+  useEffect(() => {
+    if (!inView) return;
+    let cancelled = false;
+    import('react-globe.gl')
+      .then((mod) => { if (!cancelled) setGlobeComponent(() => mod.default); })
+      .catch((err) => { console.error('❌ Globe load error:', err); if (!cancelled) setLoadError(true); });
+    return () => { cancelled = true; };
+  }, [inView]);
+
+  // داده‌های کشورها و شهرها
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const all = [...CONTINENTS];
       try {
         const [countries, cities] = await Promise.all([
-  fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson')
-    .then((r) => r.ok ? r.json() : null).catch(() => null),
-  fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_populated_places_simple.geojson')
-    .then((r) => r.ok ? r.json() : null).catch(() => null),
-]);
+          fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson')
+            .then((r) => (r.ok ? r.json() : null)).catch(() => null),
+          fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_populated_places_simple.geojson')
+            .then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        ]);
         if (countries?.features?.length) {
           countries.features.forEach((f) => {
             const name = f.properties?.ADMIN || f.properties?.NAME;
@@ -96,9 +112,7 @@ export default function EarthGlobe() {
             .filter((f) => (f.properties?.pop_max || 0) >= 2000000)
             .forEach((f) => {
               const [lng, lat] = f.geometry?.coordinates || [];
-              if (f.properties?.name && isFinite(lat)) {
-                all.push({ name: f.properties.name, lat, lng, type: 'city' });
-              }
+              if (f.properties?.name && isFinite(lat)) all.push({ name: f.properties.name, lat, lng, type: 'city' });
             });
         }
       } catch {
@@ -109,6 +123,7 @@ export default function EarthGlobe() {
     return () => { cancelled = true; };
   }, []);
 
+  // تنظیم چرخش و زوم
   useEffect(() => {
     const globe = globeRef.current;
     if (!globe || !ready) return;
@@ -132,27 +147,6 @@ export default function EarthGlobe() {
     globeRef.current?.pointOfView({ lat: 32.4, lng: 53.7, altitude: 1.1 }, 1200);
   };
 
-  // اگه پکیج نصب نشده یا کرش کرد
-  if (loadError || !GlobeComponent) {
-    return (
-      <div className="glass-strong relative grid h-[420px] w-full place-items-center rounded-2xl border border-cyan-500/20 md:h-[560px]">
-        <div className="text-center">
-          <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-cyan-400 to-fuchsia-500 text-3xl">
-            🌍
-          </div>
-          <p className="font-display text-lg font-bold text-white">
-            {loadError ? 'کره زمین در حال بارگذاری...' : 'آماده‌سازی کره'}
-          </p>
-          <p className="mt-2 text-xs text-slate-400">
-            {loadError
-              ? 'npm install react-globe.gl را اجرا کنید'
-              : 'لطفاً چند لحظه صبر کنید'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const Globe = GlobeComponent;
 
   return (
@@ -160,45 +154,57 @@ export default function EarthGlobe() {
       ref={wrapRef}
       className="glass-strong relative h-[420px] w-full overflow-hidden rounded-2xl border border-cyan-500/20 md:h-[560px]"
     >
-      {!ready && (
+      {/* حالت لودینگ / Lazy */}
+      {(!ready || !Globe) && (
         <div className="absolute inset-0 z-10 grid place-items-center bg-[#05050e]">
           <div className="text-center">
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-cyan-400 border-t-transparent" />
-            <p className="mt-3 text-xs text-slate-400">در حال بارگذاری کره زمین... 🌍</p>
+            {loadError ? (
+              <>
+                <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-cyan-400 to-fuchsia-500 text-3xl">🌍</div>
+                <p className="text-xs text-slate-400">کره زمین در دسترس نیست</p>
+              </>
+            ) : (
+              <>
+                <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-cyan-400 border-t-transparent" />
+                <p className="mt-3 text-xs text-slate-400">در حال بارگذاری کره زمین... 🌍</p>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      <Globe
-        ref={globeRef}
-        width={dims.w}
-        height={dims.h}
-        globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-        bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-        showAtmosphere
-        atmosphereColor="#22d3ee"
-        atmosphereAltitude={0.18}
-        backgroundColor="rgba(0,0,0,0)"
-        labelsData={labels}
-        labelLat="lat"
-        labelLng="lng"
-        labelText="name"
-        labelAltitude={0.02}
-        labelSize={(d) => (d.type === 'continent' ? 2.1 : d.type === 'country' ? 1.3 : 0.8)}
-        labelDotRadius={(d) => (d.type === 'continent' ? 0.35 : d.type === 'country' ? 0.25 : 0.12)}
-        labelColor={(d) =>
-          d.type === 'continent'
-            ? 'rgba(232,121,249,0.95)'
-            : d.type === 'country'
-            ? 'rgba(34,211,238,0.9)'
-            : 'rgba(74,222,128,0.8)'
-        }
-        labelResolution={2}
-        onGlobeReady={() => {
-          setReady(true);
-          globeRef.current?.pointOfView({ lat: 32.4, lng: 53.7, altitude: 2.0 });
-        }}
-      />
+      {Globe && inView && (
+        <Globe
+          ref={globeRef}
+          width={dims.w}
+          height={dims.h}
+          globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
+          bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+          showAtmosphere
+          atmosphereColor="#22d3ee"
+          atmosphereAltitude={0.18}
+          backgroundColor="rgba(0,0,0,0)"
+          labelsData={labels}
+          labelLat="lat"
+          labelLng="lng"
+          labelText="name"
+          labelAltitude={0.02}
+          labelSize={(d) => (d.type === 'continent' ? 2.1 : d.type === 'country' ? 1.3 : 0.8)}
+          labelDotRadius={(d) => (d.type === 'continent' ? 0.35 : d.type === 'country' ? 0.25 : 0.12)}
+          labelColor={(d) =>
+            d.type === 'continent'
+              ? 'rgba(232,121,249,0.95)'
+              : d.type === 'country'
+              ? 'rgba(34,211,238,0.9)'
+              : 'rgba(74,222,128,0.8)'
+          }
+          labelResolution={2}
+          onGlobeReady={() => {
+            setReady(true);
+            globeRef.current?.pointOfView({ lat: 32.4, lng: 53.7, altitude: 2.0 });
+          }}
+        />
+      )}
 
       {/* دکمه‌های کنترل */}
       <div className="absolute left-3 top-3 z-20 flex flex-col gap-2">
@@ -223,7 +229,6 @@ export default function EarthGlobe() {
         </button>
       </div>
 
-      {/* راهنما */}
       <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/10 bg-black/60 px-4 py-1.5 text-[10px] text-slate-300 backdrop-blur">
         🖱 بکش تا بچرخونی • اسکرول = زوم • {labels.length} برچسب فعال
       </div>
