@@ -31,7 +31,7 @@ function Chars({ text, className }) {
   return (
     <span className={className}>
       {text.split('').map((ch, i) => (
-        <span key={i} className="hero-char inline-block will-change-transform">
+        <span key={i} className="hero-char inline-block">
           {ch === ' ' ? '\u00A0' : ch}
         </span>
       ))}
@@ -48,7 +48,7 @@ export default function Home() {
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
       tl.from('.hero-tag', { y: 20, opacity: 0, duration: 0.5 })
-        .from('.hero-char', { y: 70, opacity: 0, rotateX: 45, stagger: 0.03, duration: 0.7 }, '-=0.2')
+        .from('.hero-char', { y: 70, opacity: 0, rotateX: 45, stagger: 0.03, duration: 0.7, clearProps: 'all' }, '-=0.2')
         .from('.hero-sub', { y: 20, opacity: 0, duration: 0.6 }, '-=0.35')
         .from('.hero-cta', { y: 16, opacity: 0, stagger: 0.12, duration: 0.5 }, '-=0.3')
         .from('.hero-stat', { y: 16, opacity: 0, stagger: 0.1, duration: 0.45 }, '-=0.25')

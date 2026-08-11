@@ -13,12 +13,23 @@ export default function WarningAlert() {
   const wasPlayingRef = useRef(false);
   const timerRef = useRef(null);
   const lastWarningIdRef = useRef(null);
+  const unlockRef = useRef(null);
+
+  /* توقف آژیر + پاک‌کردن listener های لمس */
+  const stopSiren = () => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    if (unlockRef.current) {
+      window.removeEventListener('pointerdown', unlockRef.current);
+      window.removeEventListener('keydown', unlockRef.current);
+      unlockRef.current = null;
+    }
+  };
 
   const close = useCallback(() => {
     setWarning(null);
-    audioRef.current?.pause();
-    audioRef.current = null;
-    // ادامه موزیک اگر قبلاً در حال پخش بود
+    stopSiren();
+    // ✅ اگه موزیک قبلاً در حال پخش بود، ادامه بده
     if (wasPlayingRef.current) {
       window.dispatchEvent(new CustomEvent('nexus-music-resume'));
     }
@@ -36,19 +47,33 @@ export default function WarningAlert() {
     // ۲) توقف موزیک سراسری
     window.dispatchEvent(new CustomEvent('nexus-music-pause'));
 
-    // ۳) 🚨 صدای آژیر
+    // ۳) 🚨 صدای آژیر — هوشمند برای موبایل
     try {
-      audioRef.current?.pause();
+      stopSiren();
       const a = new Audio('/audio/warning-siren.mp3');
       a.loop = true;
       a.volume = 0.9;
       audioRef.current = a;
-      a.play().catch(() => {
-        // اگر فایل نبود یا user interaction نیاز بود، بی‌صدا ادامه بده
-      });
+      a.play()
+        .then(() => {
+          console.log('🔊 [WarningAlert] آژیر پخش شد');
+        })
+        .catch((err) => {
+          // 📱 مرورگر موبایل بدون لمس اجازه پخش نمی‌دهد → با اولین لمس پخش کن
+          console.warn('🔇 [WarningAlert] پخش خودکار مجاز نبود (موبایل)؛ با اولین لمس صفحه پخش می‌شود...', err?.name);
+          const unlock = () => {
+            window.removeEventListener('pointerdown', unlock);
+            window.removeEventListener('keydown', unlock);
+            unlockRef.current = null;
+            audioRef.current?.play().catch(() => {});
+          };
+          unlockRef.current = unlock;
+          window.addEventListener('pointerdown', unlock);
+          window.addEventListener('keydown', unlock);
+        });
     } catch {}
 
-    // ۴) دریافت مشخصات به‌روز کاربر از دیتابیس
+    // ۴) مشخصات به‌روز کاربر از دیتابیس
     if (user?.id) {
       const { data: prof } = await supabase
         .from('profiles')
@@ -61,26 +86,22 @@ export default function WarningAlert() {
     // ۵) نمایش پاپ‌آپ
     setWarning(n);
 
-    // ۶) ⏱️ بستن خودکار بعد از ۱۵ ثانیه (قبلاً ۱۰ ثانیه بود)
+    // ۶) ️ بستن خودکار بعد از ۱۵ ثانیه
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => close(), 15000);
   }, [user?.id, close]);
 
   // 📡 Realtime + Polling fallback
   useEffect(() => {
-    // تا زمانی که auth در حال لود است صبر کن
     if (!user?.id || authLoading) return;
 
-    console.log('🛡️ [WarningAlert] در حال راه‌اندازی subscription برای:', user.id);
-
-    // ✅ fallback: هنگام mount بررسی کن آیا اخطار خوانده‌نشده اخیر هست
+    // ✅ fallback: بررسی آخرین اخطار اخیر (بدون ستون read — چون جدول notification_reads جداست)
     const checkLatestWarning = async () => {
       const { data: latest, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .eq('type', 'warning')
-        .eq('read', false)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -89,10 +110,9 @@ export default function WarningAlert() {
         console.warn('⚠️ [WarningAlert] خطا در fetch اعلان:', error.message);
         return;
       }
-      // فقط اگر در ۳۰ ثانیه اخیر ساخته شده (جلوگیری از نمایش اخطار قدیمی)
+      // فقط اگر در ۳۰ ثانیه اخیر ساخته شده
       if (latest && latest.id !== lastWarningIdRef.current) {
-        const created = new Date(latest.created_at).getTime();
-        const age = Date.now() - created;
+        const age = Date.now() - new Date(latest.created_at).getTime();
         if (age < 30000) {
           console.log('🔔 [WarningAlert] اخطار خوانده‌نشده پیدا شد، نمایش:', latest);
           trigger(latest);
@@ -101,7 +121,7 @@ export default function WarningAlert() {
     };
     checkLatestWarning();
 
-    // Realtime subscription — با چک کردن هر حالتی از payload
+    // Realtime subscription
     const channel = supabase
       .channel('warning-alert-' + user.id)
       .on(
@@ -113,33 +133,17 @@ export default function WarningAlert() {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('📡 [WarningAlert] Realtime payload دریافت شد:', payload);
-
-          // بررسی robust: ممکن است payload.new null باشد (مشکل RLS)
           const newItem = payload?.new;
-          if (!newItem) {
-            console.warn('⚠️ [WarningAlert] payload.new خالی است!');
-            return;
-          }
-
-          // اگر نوع اعلان warning بود، trigger کن
-          if (newItem.type === 'warning') {
-            trigger(newItem);
-          }
+          if (!newItem) return;
+          if (newItem.type === 'warning') trigger(newItem);
         }
       )
-      .subscribe((status, err) => {
-        console.log('📡 [WarningAlert] وضعیت subscription:', status, err || '');
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('❌ [WarningAlert] خطا در اتصال Realtime:', err);
-        }
-      });
+      .subscribe();
 
     return () => {
-      console.log('🛑 [WarningAlert] در حال حذف subscription');
       supabase.removeChannel(channel);
       clearTimeout(timerRef.current);
-      audioRef.current?.pause();
+      stopSiren();
     };
   }, [user?.id, authLoading, trigger]);
 
@@ -228,7 +232,7 @@ export default function WarningAlert() {
                   🔔 این اخطار به‌صورت دائم در بخش اعلانات شما ثبت شد.
                 </p>
 
-                {/* نوار شمارش معکوس ۱۵ ثانیه */}
+                {/* نوار شمارش ۱۵ ثانیه */}
                 <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
                   <motion.div
                     initial={{ width: '100%' }}
