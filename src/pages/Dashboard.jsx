@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Trophy, Target, TrendingUp, Zap, Plus, Gamepad2, Clock, Swords, Award, Flame, User,
+  Trophy, Target, Zap, Plus, Gamepad2, Clock, Swords, Flame, User, TrendingUp, Award,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { cn } from '../utils/cn';
+
+/* گوشه‌های بریده‌شده سایبری */
+const CLIP = '[clip-path:polygon(0_0,calc(100%-22px)_0,100%_22px,100%_100%,22px_100%,0_calc(100%-22px))]';
+const CLIP_SM = '[clip-path:polygon(0_0,calc(100%-12px)_0,100%_12px,100%_100%,12px_100%,0_calc(100%-12px))]';
 
 const xpForLevel = (level) => level * 100;
 
@@ -21,17 +25,17 @@ const GAME_OPTIONS = [
 ];
 
 const RESULT_COLORS = {
-  win: 'text-cyan-400 border-cyan-400/40 bg-cyan-500/10 shadow-glow-cyan',
-  loss: 'text-red-400 border-red-400/40 bg-red-500/10 shadow-[0_0_12px_rgba(239,68,68,0.4)]',
-  draw: 'text-yellow-400 border-yellow-400/40 bg-yellow-500/10 shadow-[0_0_12px_rgba(234,179,8,0.4)]',
+  win: 'text-cyan-300 border-cyan-400/50 bg-cyan-500/10 shadow-[0_0_16px_rgba(34,211,238,0.3)]',
+  loss: 'text-red-400 border-red-400/50 bg-red-500/10 shadow-[0_0_16px_rgba(239,68,68,0.3)]',
+  draw: 'text-yellow-300 border-yellow-400/50 bg-yellow-500/10 shadow-[0_0_16px_rgba(234,179,8,0.3)]',
 };
-
+const RESULT_BAR = { win: 'bg-cyan-400', loss: 'bg-red-500', draw: 'bg-yellow-400' };
 const RESULT_LABELS = { win: 'پیروزی', loss: 'شکست', draw: 'مساوی' };
 const XP_MAP = { win: 50, draw: 20, loss: 10 };
 
+/* ─────────── Dashboard v7 — PLAYER DECK ─────────── */
 export default function Dashboard() {
   const { user, profile } = useAuth();
-
   const [stats, setStats] = useState({ xp: 0, level: 1, wins: 0, losses: 0, draws: 0, matches_played: 0 });
   const [recentMatches, setRecentMatches] = useState([]);
   const [equipped, setEquipped] = useState([]);
@@ -43,19 +47,17 @@ export default function Dashboard() {
   const xpForNext = xpForLevel(stats.level);
   const progressPercent = Math.min(100, (stats.xp / xpForNext) * 100);
 
-  // ✅ آیتم‌های فعال کاربر (قاب/تایتل/بج)
+  /* ✅ آیتم‌های فعال کاربر (قاب/تایتل/بج) */
   const loadEquipped = async () => {
     const { data, error } = await supabase
       .from('user_inventory')
       .select('*, item:store_items(*)')
       .eq('user_id', user.id)
       .eq('is_equipped', true);
-
     if (!error) {
       setEquipped(data || []);
       return;
     }
-    // fallback اگه join خطا داد
     const plain = await supabase.from('user_inventory').select('*').eq('user_id', user.id).eq('is_equipped', true);
     const rows = plain.data || [];
     const ids = rows.map((r) => r.item_id).filter(Boolean);
@@ -82,6 +84,7 @@ export default function Dashboard() {
     }
     loadRecentMatches();
     loadEquipped();
+    // eslint-disable-next-line
   }, [profile, user?.id]);
 
   const loadRecentMatches = async () => {
@@ -118,12 +121,7 @@ export default function Dashboard() {
       });
       if (error) throw error;
       setSuccessMsg(`✅ ثبت شد! +${xp} XP دریافتی`);
-
-      const { data: updatedProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      const { data: updatedProfile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
       if (updatedProfile) {
         setStats({
           xp: updatedProfile.xp, level: updatedProfile.level,
@@ -144,250 +142,329 @@ export default function Dashboard() {
   const equippedTitle = equipped.find((v) => v.item?.type === 'title');
   const equippedBadge = equipped.find((v) => v.item?.type === 'badge');
 
+  /* رینگ SVG */
+  const R = 52;
+  const C = 2 * Math.PI * R;
+
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-          <h1 className="font-display text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 to-fuchsia-500 bg-clip-text text-transparent mb-2">
-            داشبورد بازیکن
-          </h1>
-          <p className="text-white/60">
-            خوش اومدی، <span className="text-cyan-400 font-semibold">{profile?.username || user.email}</span> 👋
-          </p>
-        </motion.div>
+    <div className="relative min-h-screen overflow-hidden px-4 pb-16 pt-24">
+      <style>{`
+        @keyframes gridFloor { to { background-position: 0 44px; } }
+        @keyframes blinkDot { 0%,100% { opacity: 1; } 50% { opacity: .2; } }
+        @keyframes scanY { 0% { top: -10%; } 100% { top: 110%; } }
+        @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+      `}</style>
 
-        {/* ─────────── ✅ بخش پروفایل (جدید) ─────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-strong mb-6 rounded-2xl border border-fuchsia-500/20 p-5"
+      {/* ─────────── صحنه ─────────── */}
+      <div className="pointer-events-none fixed inset-0">
+        <div
+          className="absolute inset-x-0 bottom-0 h-[42vh]"
+          style={{ maskImage: 'linear-gradient(to top, black 15%, transparent 92%)', WebkitMaskImage: 'linear-gradient(to top, black 15%, transparent 92%)' }}
         >
-          <div className="flex flex-wrap items-center gap-4">
-            {/* آواتار با قاب فعال */}
-            <div
-              className={cn(
-                'grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br text-xl font-black text-slate-950 ring-4',
-                equippedFrame
-                  ? cn(equippedFrame.item.accent, 'ring-white/30')
-                  : 'from-cyan-400 to-fuchsia-500 ring-transparent'
-              )}
-            >
-              {(profile?.username || user.email || '?').slice(0, 2).toUpperCase()}
-            </div>
+          <div
+            className="absolute inset-0 opacity-[0.16]"
+            style={{
+              backgroundImage: 'linear-gradient(rgba(34,211,238,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,.5) 1px, transparent 1px)',
+              backgroundSize: '44px 44px',
+              transform: 'perspective(700px) rotateX(56deg) scale(1.25)',
+              transformOrigin: 'bottom',
+              animation: 'gridFloor 2.2s linear infinite',
+            }}
+          />
+        </div>
+        <div className="absolute -top-40 left-1/2 h-[380px] w-[760px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[130px]" />
+      </div>
 
-            <div className="min-w-0 flex-1">
-              <p className="font-display text-lg font-bold text-white">
-                {profile?.username || user.email}
-                {equippedBadge && (
-                  <span className="mr-2 align-middle" title={equippedBadge.item.name}>
-                    {equippedBadge.item.icon}
+      <div className="relative mx-auto max-w-6xl space-y-6">
+        {/* ─────────── هدر HUD ─────────── */}
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="flex items-center gap-2 font-display text-[9px] uppercase tracking-[0.35em] text-cyan-400/70">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" style={{ animation: 'blinkDot 1.6s infinite' }} />
+              Player Deck // {profile?.username || user.email}
+            </p>
+            <h1 className="mt-2 font-display text-3xl font-black tracking-[0.06em] text-white md:text-4xl" style={{ textShadow: '0 0 30px rgba(34,211,238,.4)' }}>
+              داشبورد <span className="text-gradient">بازیکن</span> 👋
+            </h1>
+          </div>
+          <Link
+            to={`/profile/${user.id}`}
+            className={cn('flex items-center gap-2 border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-300 transition hover:bg-cyan-400/20 hover:shadow-[0_0_18px_rgba(34,211,238,0.3)]', CLIP_SM)}
+          >
+            <User size={14} /> پروفایل من
+          </Link>
+        </div>
+
+        {/* ─────────── پروفایل + رینگ سطح ─────────── */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* کارت پروفایل */}
+          <div className={cn('relative border border-fuchsia-400/25 bg-[#070b18]/85 p-5 backdrop-blur-xl lg:col-span-2', CLIP)}>
+            <span className="pointer-events-none absolute left-2 top-2 h-4 w-4 border-l-2 border-t-2 border-fuchsia-400/60" />
+            <span className="pointer-events-none absolute bottom-2 right-2 h-4 w-4 border-b-2 border-r-2 border-cyan-400/60" />
+            <div className="pointer-events-none absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/40 to-transparent" style={{ animation: 'scanY 4.5s linear infinite' }} />
+
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="relative">
+                <span className="absolute inset-0 rounded-xl bg-cyan-400/25 blur-[10px]" />
+                <div
+                  className={cn(
+                    'relative grid h-16 w-16 place-items-center bg-gradient-to-br text-xl font-black text-slate-950',
+                    CLIP_SM,
+                    equippedFrame ? equippedFrame.item.accent : 'from-cyan-400 to-fuchsia-500'
+                  )}
+                >
+                  {(profile?.username || user.email || '?').slice(0, 2).toUpperCase()}
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-display text-lg font-bold text-white">
+                  {profile?.username || user.email}
+                  {equippedBadge && (
+                    <span className="mr-2 align-middle" title={equippedBadge.item.name}>{equippedBadge.item.icon}</span>
+                  )}
+                </p>
+                {equippedTitle ? (
+                  <span className={cn('inline-block rounded-md bg-gradient-to-r px-2 py-0.5 text-[10px] font-bold text-slate-950', equippedTitle.item.accent)}>
+                    {equippedTitle.item.icon} {equippedTitle.item.name.replace('تایتل: ', '')}
                   </span>
+                ) : (
+                  <p className="text-xs text-slate-500">هنوز تایتلی نداری — از فروشگاه بخر! 🛒</p>
                 )}
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                {[
+                  { v: stats.wins, l: 'برد', c: 'text-emerald-400' },
+                  { v: stats.losses, l: 'باخت', c: 'text-red-400' },
+                  { v: stats.draws, l: 'مساوی', c: 'text-yellow-300' },
+                ].map((x) => (
+                  <div key={x.l} className="border border-white/10 bg-white/5 px-3 py-2" style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
+                    <p className={cn('font-display text-lg font-black', x.c)}>{x.v}</p>
+                    <p className="text-[9px] text-slate-500">{x.l}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* کارت رینگ سطح */}
+          <div className={cn('relative flex items-center gap-5 border border-cyan-400/25 bg-[#070b18]/85 p-5 backdrop-blur-xl', CLIP)}>
+            <span className="pointer-events-none absolute right-2 top-2 h-4 w-4 border-r-2 border-t-2 border-cyan-400/60" />
+            <div className="relative h-32 w-32 shrink-0">
+              <svg viewBox="0 0 120 120" className="h-32 w-32 -rotate-90 drop-shadow-[0_0_12px_rgba(34,211,238,0.45)]">
+                <circle cx="60" cy="60" r={R} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="8" />
+                <motion.circle
+                  cx="60" cy="60" r={R} fill="none"
+                  stroke="url(#nxGrad)" strokeWidth="8" strokeLinecap="round"
+                  strokeDasharray={C}
+                  initial={{ strokeDashoffset: C }}
+                  animate={{ strokeDashoffset: C - (C * progressPercent) / 100 }}
+                  transition={{ duration: 1.2, ease: 'easeOut' }}
+                />
+                <defs>
+                  <linearGradient id="nxGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#22d3ee" />
+                    <stop offset="100%" stopColor="#e879f9" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div className="absolute inset-0 grid place-items-center">
+                <div className="text-center">
+                  <p className="font-display text-3xl font-black text-white">{stats.level}</p>
+                  <p className="text-[8px] uppercase tracking-[0.3em] text-slate-500">Level</p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <Award size={15} className="text-cyan-300" />
+                <p className="font-display text-[10px] uppercase tracking-[0.3em] text-slate-400">پیشرفت سطح</p>
+              </div>
+              <p className="mt-2 font-display text-xl font-black text-fuchsia-300">
+                {stats.xp} <span className="text-xs text-slate-500">/ {xpForNext} XP</span>
               </p>
-              {equippedTitle ? (
-                <span className={cn('inline-block rounded-lg bg-gradient-to-r px-2 py-0.5 text-[10px] font-bold text-slate-950', equippedTitle.item.accent)}>
-                  {equippedTitle.item.icon} {equippedTitle.item.name.replace('تایتل: ', '')}
-                </span>
-              ) : (
-                <p className="text-xs text-slate-500">هنوز تایتلی نداری — از فروشگاه بخر! 🛒</p>
-              )}
-            </div>
-
-            <Link
-              to={`/profile/${user.id}`}
-              className="flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-bold text-cyan-300 transition hover:bg-cyan-400/20"
-            >
-              <User size={15} /> پروفایل من
-            </Link>
-          </div>
-        </motion.div>
-
-        {/* کارت سطح و XP */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="glass-strong rounded-2xl p-6 mb-6 border border-cyan-500/20 shadow-glow-cyan"
-        >
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500 to-fuchsia-500 flex items-center justify-center shadow-glow-cyan">
-                <Award className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <div className="text-sm text-white/50">سطح شما</div>
-                <div className="font-display text-3xl font-bold text-cyan-400">{stats.level}</div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-white/50">XP فعلی</div>
-              <div className="font-display text-2xl font-bold text-fuchsia-400">
-                {stats.xp} <span className="text-sm text-white/50">/ {xpForNext}</span>
-              </div>
+              <p className="mt-1 text-[10px] text-slate-500">{Math.max(0, Math.floor(xpForNext - stats.xp))} XP تا سطح بعدی</p>
             </div>
           </div>
-          <div className="relative h-3 bg-black/40 rounded-full overflow-hidden border border-white/10">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: 1, ease: 'easeOut' }}
-              className="absolute top-0 left-0 h-full bg-gradient-to-r from-cyan-400 to-fuchsia-500 rounded-full shadow-glow-cyan"
-            />
-          </div>
-          <div className="text-xs text-white/40 mt-2 text-center">{Math.floor(xpForNext - stats.xp)} XP تا سطح بعدی</div>
-        </motion.div>
+        </div>
 
-        {/* کارت‌های آماری */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {/* ─────────── چیپ‌های آمار ─────────── */}
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {[
-            { label: 'کل مسابقات', value: stats.matches_played, icon: Gamepad2, color: 'text-cyan-400' },
-            { label: 'پیروزی‌ها', value: stats.wins, icon: Trophy, color: 'text-green-400' },
-            { label: 'شکست‌ها', value: stats.losses, icon: Swords, color: 'text-red-400' },
-            { label: 'مساوی', value: stats.draws, icon: Target, color: 'text-yellow-400' },
+            { label: 'کل مسابقات', value: stats.matches_played, icon: Gamepad2, c: 'text-cyan-300', g: 'rgba(34,211,238,.35)' },
+            { label: 'پیروزی‌ها', value: stats.wins, icon: Trophy, c: 'text-emerald-400', g: 'rgba(52,211,153,.35)' },
+            { label: 'شکست‌ها', value: stats.losses, icon: Swords, c: 'text-red-400', g: 'rgba(248,113,113,.35)' },
+            { label: 'مساوی', value: stats.draws, icon: Target, c: 'text-yellow-300', g: 'rgba(250,204,21,.35)' },
           ].map((item, i) => (
             <motion.div
               key={item.label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className="glass rounded-xl p-4 border border-white/10 hover:border-cyan-500/40 transition-all"
+              transition={{ delay: i * 0.08 }}
+              whileHover={{ y: -4 }}
+              className={cn('group relative border border-white/10 bg-[#070b18]/80 p-4 backdrop-blur-xl transition-colors hover:border-white/25', CLIP_SM)}
             >
-              <div className="flex items-center justify-between mb-2">
-                <item.icon className={`w-5 h-5 ${item.color}`} />
-                <span className="text-xs text-white/40">{item.label}</span>
+              <div className="flex items-center justify-between">
+                <item.icon className={cn('h-5 w-5 drop-shadow-[0_0_8px_var(--tw-shadow-color)]', item.c)} style={{ ['--tw-shadow-color']: item.g }} />
+                <span className="text-[9px] uppercase tracking-wider text-slate-500">{item.label}</span>
               </div>
-              <div className="font-display text-2xl font-bold text-white">{item.value}</div>
+              <p className="mt-2 font-display text-2xl font-black text-white">{item.value}</p>
             </motion.div>
           ))}
         </div>
 
-        {/* دو ستون: فرم + لیست matchها */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* فرم ثبت match جدید */}
+        {/* ─────────── فرم + لاگ نبرد ─────────── */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* فرم ثبت مسابقه — MISSION LOG */}
           <motion.form
             onSubmit={handleSubmit}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="glass-strong rounded-2xl p-6 border border-fuchsia-500/20"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={cn('relative border border-fuchsia-400/25 bg-[#070b18]/85 p-6 backdrop-blur-xl', CLIP)}
           >
-            <div className="flex items-center gap-2 mb-4">
-              <Flame className="w-5 h-5 text-fuchsia-400" />
-              <h2 className="font-display text-xl font-bold text-white">ثبت مسابقه جدید</h2>
+            <span className="pointer-events-none absolute left-2 top-2 h-4 w-4 border-l-2 border-t-2 border-fuchsia-400/60" />
+            <div className="mb-5 flex items-center gap-2 border-b border-white/10 pb-3">
+              <Flame className="h-5 w-5 text-fuchsia-400" />
+              <h2 className="font-display text-sm font-black uppercase tracking-[0.2em] text-white">Mission Log — ثبت مسابقه</h2>
             </div>
 
-            <label className="block text-sm text-white/60 mb-2">🎮 بازی</label>
+            <label className="mb-1.5 block font-display text-[9px] uppercase tracking-[0.28em] text-slate-500">🎮 بازی</label>
             <select
               value={form.game_name}
               onChange={(e) => setForm({ ...form, game_name: e.target.value })}
-              className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white mb-4 focus:outline-none focus:border-cyan-400"
+              className="mb-4 w-full rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none transition focus:border-fuchsia-400/50"
             >
               {GAME_OPTIONS.map((g) => (
                 <option key={g.id} value={g.id} className="bg-slate-900">{g.icon} {g.name}</option>
               ))}
             </select>
 
-            <label className="block text-sm text-white/60 mb-2">🏆 نتیجه</label>
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <label className="mb-1.5 block font-display text-[9px] uppercase tracking-[0.28em] text-slate-500">🏆 نتیجه</label>
+            <div className="mb-4 grid grid-cols-3 gap-2">
               {['win', 'draw', 'loss'].map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => setForm({ ...form, result: r })}
-                  className={`py-2 rounded-lg border font-semibold text-sm transition-all ${
-                    form.result === r ? RESULT_COLORS[r] : 'border-white/10 text-white/50 hover:border-white/30'
-                  }`}
+                  className={cn(
+                    'border py-2.5 text-xs font-bold transition-all',
+                    CLIP_SM,
+                    form.result === r ? RESULT_COLORS[r] : 'border-white/10 text-white/50 hover:border-white/30 hover:text-white'
+                  )}
                 >
                   {RESULT_LABELS[r]}
                 </button>
               ))}
             </div>
 
-            <label className="block text-sm text-white/60 mb-2">⏱️ مدت (دقیقه)</label>
-            <input
-              type="number"
-              min="1"
-              value={form.duration_minutes}
-              onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
-              className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white mb-4 focus:outline-none focus:border-cyan-400"
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block font-display text-[9px] uppercase tracking-[0.28em] text-slate-500">⏱ مدت (دقیقه)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.duration_minutes}
+                  onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
+                  className="w-full rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none transition focus:border-fuchsia-400/50"
+                />
+              </div>
+              <div className={cn('flex items-center justify-center gap-2 border border-fuchsia-400/30 bg-fuchsia-500/10', CLIP_SM)}>
+                <Zap className="h-4 w-4 text-fuchsia-300" />
+                <span className="text-xs font-bold text-fuchsia-300">+{XP_MAP[form.result]} XP</span>
+              </div>
+            </div>
 
-            <label className="block text-sm text-white/60 mb-2">📝 یادداشت (اختیاری)</label>
+            <label className="mb-1.5 mt-4 block font-display text-[9px] uppercase tracking-[0.28em] text-slate-500">📝 یادداشت (اختیاری)</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               rows={2}
               placeholder="مثلاً: یه بازی سخته بود..."
-              className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white mb-4 focus:outline-none focus:border-cyan-400 resize-none"
+              className="w-full resize-none rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-700 focus:border-fuchsia-400/50"
             />
 
-            <div className="bg-fuchsia-500/10 border border-fuchsia-400/30 rounded-lg p-3 mb-4 text-center">
-              <Zap className="inline w-4 h-4 text-fuchsia-400 ml-1" />
-              <span className="text-fuchsia-300 font-semibold">XP دریافتی: +{XP_MAP[form.result]}</span>
-            </div>
-
-            <button
+            <motion.button
+              whileTap={{ scale: 0.97 }}
               type="submit"
               disabled={submitting}
-              className="w-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-white font-bold py-3 rounded-lg hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-glow-cyan"
+              className={cn(
+                'mt-4 flex w-full items-center justify-center gap-2 bg-gradient-to-r from-fuchsia-500 to-cyan-400 py-3 font-display text-xs font-black uppercase tracking-[0.3em] text-slate-950 shadow-[0_0_26px_rgba(232,121,249,0.35)] transition-all hover:shadow-[0_0_40px_rgba(232,121,249,0.55)] disabled:opacity-50',
+                CLIP_SM
+              )}
             >
-              {submitting ? '⏳ در حال ثبت...' : (<><Plus className="w-5 h-5" /> ثبت مسابقه</>)}
-            </button>
+              {submitting ? '⏳ در حال ثبت...' : (<><Plus className="h-4 w-4" /> ثبت مسابقه</>)}
+            </motion.button>
 
             <AnimatePresence>
               {successMsg && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
+                <motion.p
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="mt-3 text-center text-cyan-400 font-semibold"
+                  className="mt-3 text-center text-xs font-bold text-cyan-300"
                 >
                   {successMsg}
-                </motion.div>
+                </motion.p>
               )}
             </AnimatePresence>
           </motion.form>
 
-          {/* لیست matchهای اخیر */}
+          {/* لیست مسابقات — BATTLE LOG */}
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="glass-strong rounded-2xl p-6 border border-cyan-500/20"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className={cn('relative border border-cyan-400/25 bg-[#070b18]/85 p-6 backdrop-blur-xl', CLIP)}
           >
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="w-5 h-5 text-cyan-400" />
-              <h2 className="font-display text-xl font-bold text-white">۱۰ مسابقه اخیر</h2>
+            <span className="pointer-events-none absolute right-2 top-2 h-4 w-4 border-r-2 border-t-2 border-cyan-400/60" />
+            <div className="mb-5 flex items-center gap-2 border-b border-white/10 pb-3">
+              <TrendingUp className="h-5 w-5 text-cyan-300" />
+              <h2 className="font-display text-sm font-black uppercase tracking-[0.2em] text-white">Battle Log — ۱۰ مسابقه اخیر</h2>
             </div>
 
             {loading ? (
-              <div className="text-center py-12 text-white/50">⏳ در حال بارگذاری...</div>
+              <div className="space-y-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="relative h-16 overflow-hidden rounded-md bg-white/5">
+                    <span
+                      className="absolute inset-0"
+                      style={{ animation: 'shimmer 1.4s infinite', background: 'linear-gradient(90deg, transparent, rgba(34,211,238,.12), transparent)' }}
+                    />
+                  </div>
+                ))}
+              </div>
             ) : recentMatches.length === 0 ? (
-              <div className="text-center py-12 text-white/50">
-                <Clock className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <div className="py-14 text-center text-sm text-slate-500">
+                <Clock className="mx-auto mb-2 h-10 w-10 opacity-30" />
                 هنوز مسابقه‌ای ثبت نکردی!
               </div>
             ) : (
-              <div className="space-y-2 chat-scroll max-h-[420px] overflow-y-auto pr-2">
-                {recentMatches.map((m) => {
+              <div className="chat-scroll max-h-[430px] space-y-2 overflow-y-auto pl-2">
+                {recentMatches.map((m, i) => {
                   const game = GAME_OPTIONS.find((g) => g.id === m.game_name);
                   return (
                     <motion.div
                       key={m.id}
-                      initial={{ opacity: 0, x: -10 }}
+                      initial={{ opacity: 0, x: -12 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className={`flex items-center justify-between p-3 rounded-lg border ${RESULT_COLORS[m.result]}`}
+                      transition={{ delay: i * 0.04 }}
+                      whileHover={{ x: -4 }}
+                      className={cn('relative flex items-center justify-between border border-white/10 bg-white/5 p-3 pr-4', CLIP_SM)}
                     >
+                      <span className={cn('absolute right-0 top-0 h-full w-0.5', RESULT_BAR[m.result])} />
                       <div className="flex items-center gap-3">
-                        <div className="text-2xl">{game?.icon || '🎮'}</div>
+                        <span className="text-2xl">{game?.icon || '🎮'}</span>
                         <div>
-                          <div className="font-semibold text-white text-sm">{game?.name || m.game_name}</div>
-                          <div className="text-xs text-white/50 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {m.duration_minutes} دقیقه
-                          </div>
+                          <p className="text-sm font-bold text-white">{game?.name || m.game_name}</p>
+                          <p className="flex items-center gap-1 text-[10px] text-slate-500">
+                            <Clock className="h-3 w-3" /> {m.duration_minutes} دقیقه
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold text-sm">{RESULT_LABELS[m.result]}</div>
-                        <div className="text-xs opacity-70">+{m.xp_gained} XP</div>
+                      <div className="text-left">
+                        <p className={cn('text-xs font-black', m.result === 'win' ? 'text-cyan-300' : m.result === 'loss' ? 'text-red-400' : 'text-yellow-300')}>
+                          {RESULT_LABELS[m.result]}
+                        </p>
+                        <p className="text-[10px] text-fuchsia-300">+{m.xp_gained} XP</p>
                       </div>
                     </motion.div>
                   );
