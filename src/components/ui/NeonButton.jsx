@@ -1,35 +1,58 @@
-import { motion } from 'framer-motion';
+import { Loader2 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
-const variants = {
+/* ─────────── NeonButton — NEXUS UI v6 ───────────
+   حالت‌ها: Hover (گلو + جارو نور) / Press (فشردن) / Loading / Disabled
+   واریانت‌ها: primary | ghost | gold | danger (ناشناخته = primary)
+   سایزها: sm | md | lg
+   prop جدید اختیاری: loading
+─────────────────────────────────────────────── */
+
+const SIZES = {
+  sm: 'gap-1.5 rounded-lg px-3 py-1.5 text-xs',
+  md: 'gap-2 rounded-xl px-5 py-2.5 text-sm',
+  lg: 'gap-2.5 rounded-xl px-7 py-3.5 text-base',
+};
+
+const VARIANTS = {
   primary:
-    'bg-cyan-400/90 text-slate-950 shadow-[0_0_24px_rgba(34,211,238,0.45)] hover:shadow-[0_0_44px_rgba(34,211,238,0.7)]',
-  secondary:
-    'bg-fuchsia-500/90 text-white shadow-[0_0_24px_rgba(217,70,239,0.4)] hover:shadow-[0_0_44px_rgba(217,70,239,0.65)]',
-  ghost: 'glass text-cyan-200 hover:border-cyan-400/40 hover:bg-white/10',
+    'bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-white font-bold ' +
+    'shadow-[0_0_20px_rgba(34,211,238,0.35)] ' +
+    'hover:shadow-[0_0_32px_rgba(34,211,238,0.5),0_0_50px_rgba(232,121,249,0.3)] hover:brightness-110',
+  ghost:
+    'border border-white/10 bg-white/5 text-slate-200 ' +
+    'hover:border-cyan-400/40 hover:bg-cyan-400/10 hover:text-cyan-200',
+  gold:
+    'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black ' +
+    'shadow-[0_0_20px_rgba(251,191,36,0.35)] hover:shadow-[0_0_34px_rgba(251,191,36,0.55)] hover:brightness-110',
+  danger:
+    'bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold ' +
+    'shadow-[0_0_20px_rgba(244,63,94,0.35)] hover:shadow-[0_0_32px_rgba(244,63,94,0.55)] hover:brightness-110',
 };
 
-const sizes = {
-  sm: 'px-4 py-2 text-xs',
-  md: 'px-6 py-3 text-sm',
-  lg: 'px-8 py-4 text-base',
-};
-
-export default function NeonButton({ children, variant = 'primary', size = 'md', className, ...props }) {
+export default function NeonButton({
+  size = 'md',
+  variant = 'primary',
+  loading = false,
+  disabled,
+  className,
+  children,
+  ...rest
+}) {
   return (
-    <motion.button
-      whileHover={{ scale: 1.04, y: -1 }}
-      whileTap={{ scale: 0.96 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+    <button
       className={cn(
-        'relative inline-flex items-center justify-center gap-2 rounded-xl font-display font-semibold uppercase tracking-wider transition-colors duration-300 disabled:pointer-events-none disabled:opacity-50',
-        variants[variant],
-        sizes[size],
+        'relative inline-flex select-none items-center justify-center font-bold transition-all duration-300',
+        SIZES[size] || SIZES.md,
+        VARIANTS[variant] || VARIANTS.primary,
+        (disabled || loading) && 'pointer-events-none opacity-45 saturate-50 shadow-none',
         className
       )}
-      {...props}
+      disabled={disabled || loading}
+      {...rest}
     >
+      {loading && <Loader2 size={15} className="animate-spin" />}
       {children}
-    </motion.button>
+    </button>
   );
 }

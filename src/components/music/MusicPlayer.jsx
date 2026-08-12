@@ -1,44 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Music, ChevronUp, ChevronDown, ListMusic } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Music, ChevronDown, ListMusic } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
-// 🎵 لیست آهنگ‌های پیش‌فرض (می‌تونی تغییر بدی)
+/* 🎵 لیست آهنگ‌های پیش‌فرض */
 const TRACKS = [
-  {
-    id: 1,
-    title: 'Cyber Dreams',
-    artist: 'NexusArena',
-    src: '/audio/track1.mp3',
-    cover: '🎧',
-    accent: 'from-cyan-400 to-blue-500',
-  },
-  {
-    id: 2,
-    title: 'Neon Nights',
-    artist: 'MafiaGANG',
-    src: '/audio/track2.mp3',
-    cover: '🌃',
-    accent: 'from-fuchsia-500 to-purple-600',
-  },
-  {
-    id: 3,
-    title: 'Arena Battle Theme',
-    artist: 'NexusArena',
-    src: '/audio/track3.mp3',
-    cover: '⚔️',
-    accent: 'from-rose-500 to-red-600',
-  },
-  {
-    id: 4,
-    title: 'Midnight Lobby',
-    artist: 'NexusArena',
-    src: '/audio/track4.mp3',
-    cover: '🌙',
-    accent: 'from-emerald-400 to-teal-500',
-  },
+  { id: 1, title: 'Cyber Dreams', artist: 'NexusArena', src: '/audio/track1.mp3', cover: '🎧', accent: 'from-cyan-400 to-blue-500' },
+  { id: 2, title: 'Neon Nights', artist: 'MafiaGANG', src: '/audio/track2.mp3', cover: '🌃', accent: 'from-fuchsia-500 to-purple-600' },
+  { id: 3, title: 'Arena Battle Theme', artist: 'NexusArena', src: '/audio/track3.mp3', cover: '⚔️', accent: 'from-rose-500 to-red-600' },
+  { id: 4, title: 'Midnight Lobby', artist: 'NexusArena', src: '/audio/track4.mp3', cover: '🌙', accent: 'from-emerald-400 to-teal-500' },
 ];
 
+/* ─────────── MusicPlayer — NEXUS UI v6 ───────────
+   - هماهنگ با سیستم اخطار (nexus-music-pause / resume)
+   - ✅ window.__NEXUS_MUSIC_PLAYING__ (نام صحیح)
+─────────────────────────────────────────────── */
 export default function MusicPlayer() {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -50,14 +26,15 @@ export default function MusicPlayer() {
   const [expanded, setExpanded] = useState(false);
   const [showList, setShowList] = useState(false);
   const [visualBars, setVisualBars] = useState(Array(20).fill(0));
-
   const track = TRACKS[currentTrack];
-    // 🌐 اعلام وضعیت پخش به سیستم اخطار
+
+  /* 🌐 اعلام وضعیت پخش به سیستم اخطار (هر دو نام برای سازگاری) */
   useEffect(() => {
     window.__NEXUS_MUSIC_PLAYING__ = isPlaying;
+    window.NEXUS_MUSIC_PLAYING = isPlaying;
   }, [isPlaying]);
 
-  //  کنترل از بیرون (توقف/ادامه توسط سیستم اخطار)
+  /* 🎛 کنترل از بیرون (توقف/ادامه توسط سیستم اخطار) */
   useEffect(() => {
     const pause = () => {
       audioRef.current?.pause();
@@ -75,45 +52,34 @@ export default function MusicPlayer() {
     };
   }, []);
 
-  // Play / Pause
   const togglePlay = async () => {
     const audio = audioRef.current;
     if (!audio) return;
     try {
-      if (isPlaying) {
-        audio.pause();
-      } else {
-        await audio.play();
-      }
+      if (isPlaying) audio.pause();
+      else await audio.play();
       setIsPlaying(!isPlaying);
     } catch (err) {
       console.error('Audio error:', err);
     }
   };
 
-  // Next / Prev
   const nextTrack = () => setCurrentTrack((c) => (c + 1) % TRACKS.length);
   const prevTrack = () => setCurrentTrack((c) => (c - 1 + TRACKS.length) % TRACKS.length);
-
-  // Volume
   const toggleMute = () => setIsMuted((m) => !m);
+
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume;
-    }
+    if (audioRef.current) audioRef.current.volume = isMuted ? 0 : volume;
   }, [volume, isMuted]);
 
-  // Progress + Visualizer
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
     const onTime = () => {
       setProgress(audio.currentTime);
       setDuration(audio.duration || 0);
     };
     const onEnd = () => nextTrack();
-
     audio.addEventListener('timeupdate', onTime);
     audio.addEventListener('ended', onEnd);
     return () => {
@@ -122,7 +88,7 @@ export default function MusicPlayer() {
     };
   }, [currentTrack]);
 
-  // ویژوالایزر مصنوعی (چون فایل صوتی واقعی نیست، انیمیشن شبیه‌سازی می‌کنه)
+  /* ویژوالایزر شبیه‌سازی‌شده */
   useEffect(() => {
     if (!isPlaying) {
       setVisualBars(Array(20).fill(0));
@@ -134,15 +100,12 @@ export default function MusicPlayer() {
     return () => clearInterval(interval);
   }, [isPlaying]);
 
-  // وقتی آهنگ عوض شد، اگه در حال پخش بودیم، آهنگ جدید هم پلی بشه
+  /* تعویض ترک حین پخش */
   useEffect(() => {
-    if (isPlaying && audioRef.current) {
-      audioRef.current.play().catch(() => {});
-    }
+    if (isPlaying && audioRef.current) audioRef.current.play().catch(() => {});
     // eslint-disable-next-line
   }, [currentTrack]);
 
-  // فرمت زمان
   const fmt = (s) => {
     if (!s || isNaN(s)) return '0:00';
     const m = Math.floor(s / 60);
@@ -158,65 +121,68 @@ export default function MusicPlayer() {
     audio.currentTime = pct * duration;
   };
 
+  const pctWidth = duration ? (progress / duration) * 100 : 0;
+
   return (
     <>
       <audio ref={audioRef} src={track.src} preload="metadata" />
 
-      {/* دکمه شناور — همیشه گوشه پایین سمت چپ */}
+      {/* 🎧 گوشه پایین-راست (بدون تداخل با دکمه بازگشت‌به‌بالای Footer) */}
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 1, type: 'spring' }}
-        className="fixed bottom-4 left-4 z-40"
+        className="fixed bottom-4 right-4 z-40"
       >
-        {/* پنل کامل */}
         <AnimatePresence>
           {expanded && (
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.9 }}
-              className="glass-strong mb-3 w-80 overflow-hidden rounded-2xl border border-cyan-400/30 p-4 shadow-[0_0_40px_rgba(34,211,238,0.3)]"
+              className="glass-strong mb-3 w-80 overflow-hidden rounded-3xl p-4"
             >
+              {/* خط نئونی بالای پنل */}
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent" />
+
               {/* هدر */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Music size={14} className="text-cyan-300" />
+                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-cyan-400/10">
+                    <Music size={13} className="text-cyan-300" />
+                  </span>
                   <span className="font-display text-xs font-bold uppercase tracking-wider text-white">
                     Music Player
                   </span>
                 </div>
                 <button
                   onClick={() => setExpanded(false)}
-                  className="grid h-6 w-6 place-items-center rounded-full text-slate-400 hover:bg-white/10 hover:text-white"
+                  className="grid h-6 w-6 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white"
                 >
                   <ChevronDown size={14} />
                 </button>
               </div>
 
-              {/* کاور آهنگ + ویژوالایزر */}
+              {/* کاور + ویژوالایزر */}
               <div className="mt-4 flex items-center gap-4">
-                <motion.div
-                  animate={isPlaying ? { rotate: 360 } : { rotate: 0 }}
-                  transition={{ duration: 4, repeat: isPlaying ? Infinity : 0, ease: 'linear' }}
-                  className={cn(
-                    'grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br text-3xl shadow-lg',
-                    track.accent
-                  )}
-                >
-                  {track.cover}
-                </motion.div>
-
+                <div className="relative shrink-0">
+                  <motion.span
+                    animate={isPlaying ? { rotate: 360 } : {}}
+                    transition={{ duration: 6, repeat: isPlaying ? Infinity : 0, ease: 'linear' }}
+                    className="absolute -inset-1.5 rounded-2xl border border-dashed border-white/25"
+                  />
+                  <div className={cn('grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br text-3xl shadow-lg', track.accent)}>
+                    {track.cover}
+                  </div>
+                </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-display text-sm font-bold text-white">{track.title}</p>
                   <p className="truncate text-xs text-slate-400">{track.artist}</p>
-
-                  {/* ویژوالایزر */}
                   <div className="mt-2 flex h-6 items-end gap-0.5">
                     {visualBars.map((h, i) => (
                       <motion.div
                         key={i}
-                        className={cn('w-1 rounded-full bg-gradient-to-t', track.accent)}
+                        className={cn('w-1 rounded-full bg-gradient-to-t drop-shadow-[0_0_6px_rgba(34,211,238,0.5)]', track.accent)}
                         animate={{ height: isPlaying ? `${Math.max(10, h)}%` : '10%' }}
                         transition={{ duration: 0.12 }}
                       />
@@ -225,21 +191,16 @@ export default function MusicPlayer() {
                 </div>
               </div>
 
-              {/* نوار پیشرفت */}
+              {/* نوار پیشرفت نئونی */}
               <div className="mt-3">
-                <div
-                  onClick={seekTo}
-                  className="group relative h-1.5 cursor-pointer rounded-full bg-white/10"
-                >
-                  <motion.div
-                    className={cn('absolute inset-y-0 left-0 rounded-full bg-gradient-to-r', track.accent)}
-                    style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
+                <div onClick={seekTo} className="group relative h-1.5 cursor-pointer rounded-full bg-white/10">
+                  <div
+                    className={cn('absolute inset-y-0 left-0 rounded-full bg-gradient-to-r shadow-[0_0_12px_rgba(34,211,238,0.6)]', track.accent)}
+                    style={{ width: `${pctWidth}%` }}
                   />
                   <div
-                    className={cn(
-                      'absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100'
-                    )}
-                    style={{ left: `calc(${duration ? (progress / duration) * 100 : 0}% - 6px)` }}
+                    className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white opacity-0 shadow-[0_0_10px_rgba(255,255,255,0.8)] transition-opacity group-hover:opacity-100"
+                    style={{ left: `calc(${pctWidth}% - 6px)` }}
                   />
                 </div>
                 <div className="mt-1 flex justify-between text-[10px] text-slate-500">
@@ -250,36 +211,24 @@ export default function MusicPlayer() {
 
               {/* کنترل‌ها */}
               <div className="mt-3 flex items-center justify-center gap-4">
-                <button
-                  onClick={prevTrack}
-                  className="grid h-9 w-9 place-items-center rounded-full text-slate-300 transition hover:bg-white/10 hover:text-white"
-                >
+                <button onClick={prevTrack} className="grid h-9 w-9 place-items-center rounded-full text-slate-300 transition hover:bg-white/10 hover:text-white">
                   <SkipBack size={16} />
                 </button>
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={togglePlay}
-                  className={cn(
-                    'grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br text-slate-950 shadow-lg',
-                    track.accent
-                  )}
+                  className={cn('grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br text-slate-950 shadow-lg', track.accent)}
                 >
                   {isPlaying ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
                 </motion.button>
-                <button
-                  onClick={nextTrack}
-                  className="grid h-9 w-9 place-items-center rounded-full text-slate-300 transition hover:bg-white/10 hover:text-white"
-                >
+                <button onClick={nextTrack} className="grid h-9 w-9 place-items-center rounded-full text-slate-300 transition hover:bg-white/10 hover:text-white">
                   <SkipForward size={16} />
                 </button>
               </div>
 
-              {/* کنترل صدا + لیست آهنگ */}
+              {/* ولوم + لیست */}
               <div className="mt-3 flex items-center gap-2">
-                <button
-                  onClick={toggleMute}
-                  className="grid h-7 w-7 place-items-center rounded-full text-slate-400 hover:bg-white/10 hover:text-white"
-                >
+                <button onClick={toggleMute} className="grid h-7 w-7 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white">
                   {isMuted || volume === 0 ? <VolumeX size={13} /> : <Volume2 size={13} />}
                 </button>
                 <input
@@ -305,22 +254,22 @@ export default function MusicPlayer() {
                 </button>
               </div>
 
-              {/* لیست آهنگ‌ها */}
+              {/* پلی‌لیست */}
               <AnimatePresence>
                 {showList && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="chat-scroll mt-3 max-h-40 overflow-y-auto rounded-xl border border-white/10 bg-black/30"
+                    className="chat-scroll mt-3 max-h-40 overflow-y-auto rounded-xl border border-white/10 bg-black/30 p-1"
                   >
                     {TRACKS.map((t, i) => (
                       <button
                         key={t.id}
                         onClick={() => setCurrentTrack(i)}
                         className={cn(
-                          'flex w-full items-center gap-3 px-3 py-2 text-right transition',
-                          i === currentTrack ? 'bg-cyan-400/10' : 'hover:bg-white/5'
+                          'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-right transition',
+                          i === currentTrack ? 'border border-cyan-400/30 bg-cyan-400/10' : 'hover:bg-white/5'
                         )}
                       >
                         <span className="text-lg">{t.cover}</span>
@@ -355,17 +304,15 @@ export default function MusicPlayer() {
           whileTap={{ scale: 0.95 }}
           onClick={() => setExpanded((v) => !v)}
           className={cn(
-            'group relative grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br text-slate-950 shadow-[0_0_30px_rgba(34,211,238,0.5)]',
+            'group relative grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br text-slate-950 shadow-[0_0_30px_rgba(34,211,238,0.5)]',
             track.accent
           )}
         >
-          {/* حلقه چرخان دور دکمه */}
           <motion.div
             animate={isPlaying ? { rotate: 360 } : {}}
             transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-            className="absolute inset-0 rounded-full border-2 border-dashed border-white/30"
+            className="absolute -inset-1 rounded-2xl border-2 border-dashed border-white/30"
           />
-
           {isPlaying ? (
             <div className="flex items-end gap-0.5">
               {[1, 2, 3].map((b) => (
@@ -380,9 +327,7 @@ export default function MusicPlayer() {
           ) : (
             <Music size={22} />
           )}
-
-          {/* tooltip */}
-          <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-slate-950/95 px-3 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+          <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-lg bg-slate-950/95 px-3 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
             {isPlaying ? track.title : 'Play Music'}
           </span>
         </motion.button>

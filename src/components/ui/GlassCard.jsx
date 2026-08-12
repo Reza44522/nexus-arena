@@ -1,21 +1,22 @@
-import { motion } from 'framer-motion';
 import { cn } from '../../utils/cn';
 
-export default function GlassCard({ children, className, hover = false, ...rest }) {
+/* ─────────── GlassCard — NEXUS UI v6 ───────────
+   سطح شیشه‌ای چندلایه با لبه‌ی طیفی و نویز سینمایی
+   - className و همه‌ی propهای اضافی (onClick و...) از طریق ...rest حفظ می‌شوند
+   - propهای اختیاری جدید: glow (هاله نئونی) و vip (حاشیه طلایی چرخان)
+─────────────────────────────────────────────── */
+export default function GlassCard({ className, children, glow = false, vip = false, ...rest }) {
   return (
-    <motion.div
-      {...(hover
-        ? { whileHover: { y: -6, transition: { type: 'spring', stiffness: 300, damping: 22 } } }
-        : {})}
+    <div
       className={cn(
-        'glass rounded-2xl',
-        hover &&
-          'transition-shadow duration-300 hover:border-cyan-400/30 hover:shadow-[0_0_40px_rgba(34,211,238,0.15)]',
+        'glass relative rounded-2xl',
+        glow && 'glass-glow',
+        vip && 'card-vip',
         className
       )}
       {...rest}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }

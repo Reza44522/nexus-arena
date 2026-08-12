@@ -12,11 +12,11 @@ const Spinner = () => (
   />
 );
 
+/* ─────────── Login — NEXUS UI v6 ─────────── */
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,6 +44,8 @@ export default function Login() {
 
   return (
     <div className="relative grid min-h-screen place-items-center overflow-hidden px-4 py-16">
+      <style>{`@keyframes scanY { 0% { top: -10%; } 100% { top: 110%; } }`}</style>
+
       {/* ─────────── پس‌زمینه‌ی زنده ─────────── */}
       <div className="pointer-events-none absolute inset-0">
         <div className="bg-grid absolute inset-0 opacity-30" />
@@ -70,7 +72,17 @@ export default function Login() {
         <div className="relative overflow-hidden rounded-3xl p-[1.5px]">
           <div className="absolute inset-[-200%] animate-[spin_7s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,#22d3ee_80deg,transparent_160deg,#e879f9_240deg,transparent_320deg)]" />
 
-          <div className="relative rounded-3xl bg-[#0a0c1e]/95 p-8 backdrop-blur-2xl">
+          <div className="glass-strong relative overflow-hidden rounded-3xl p-8">
+            {/* خط اسکن متحرک */}
+            <div className="pointer-events-none absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent animate-[scanY_3.5s_linear_infinite]" />
+
+            {/* تگ HUD */}
+            <div className="mb-4 flex items-center justify-center gap-2 font-display text-[9px] uppercase tracking-[0.35em] text-cyan-400/70">
+              <span className="h-1 w-1 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
+              Encrypted Channel // Nexus-ID
+              <span className="h-1 w-1 rounded-full bg-fuchsia-400 shadow-[0_0_8px_rgba(232,121,249,0.9)]" />
+            </div>
+
             {/* لوگو */}
             <div className="mb-6 text-center">
               <div className="relative mx-auto mb-4 h-16 w-16">
@@ -81,9 +93,7 @@ export default function Login() {
               </div>
               <h1 className="font-display text-2xl font-black tracking-wide text-white">
                 WELCOME{' '}
-                <span className="bg-gradient-to-r from-cyan-400 to-fuchsia-500 bg-clip-text text-transparent">
-                  BACK
-                </span>
+                <span className="text-gradient">BACK</span>
               </h1>
               <p className="mt-1 text-sm text-slate-400">برای ورود به آرنا، آماده‌ای؟</p>
             </div>
@@ -95,7 +105,7 @@ export default function Login() {
               transition={{ duration: 0.4 }}
             >
               {error && (
-                <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+                <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.2)]">
                   ⚠ {error}
                 </div>
               )}
@@ -112,10 +122,9 @@ export default function Login() {
                   required
                   autoComplete="email"
                   placeholder="player@nexus.gg"
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-4 pr-10 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400/60 focus:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-4 pr-10 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400/60"
                 />
               </div>
-
               <div className="group relative">
                 <Lock className="absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-300" />
                 <input
@@ -125,7 +134,7 @@ export default function Login() {
                   required
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-10 pr-10 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400/60 focus:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-10 pr-10 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400/60"
                 />
                 <button
                   type="button"
@@ -160,7 +169,7 @@ export default function Login() {
             <button
               type="button"
               onClick={fillDemo}
-              className="mt-4 w-full rounded-xl border border-dashed border-cyan-400/30 bg-cyan-400/5 px-4 py-3 text-left text-xs text-slate-300 transition-colors hover:bg-cyan-400/10"
+              className="mt-4 w-full rounded-xl border border-dashed border-cyan-400/30 bg-cyan-400/5 px-4 py-3 text-left text-xs text-slate-300 transition-all hover:bg-cyan-400/10 hover:shadow-[0_0_18px_rgba(34,211,238,0.15)]"
             >
               <span className="font-bold text-cyan-300">Demo account</span> — demo@nexus.gg / demo123 (click to fill)
             </button>
@@ -179,8 +188,8 @@ export default function Login() {
                 { icon: Zap, label: '1,200+ Tours' },
                 { icon: Shield, label: 'Anti-Cheat' },
               ].map((s) => (
-                <div key={s.label} className="flex flex-col items-center gap-1 text-slate-500">
-                  <s.icon size={14} className="text-cyan-400/70" />
+                <div key={s.label} className="group flex flex-col items-center gap-1 text-slate-500 transition-colors hover:text-slate-300">
+                  <s.icon size={14} className="text-cyan-400/70 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)] transition-transform group-hover:scale-110" />
                   <span className="text-[9px] uppercase tracking-wider">{s.label}</span>
                 </div>
               ))}

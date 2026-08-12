@@ -59,21 +59,28 @@ export default function Home() {
 
   return (
     <PageWrapper>
-      {/* ---------- HERO ---------- */}
-      <section ref={heroRef} className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 pb-20 pt-10 sm:px-6 lg:grid-cols-2 lg:px-8">
+      {/* ---------- HERO سینمایی ---------- */}
+      <section ref={heroRef} className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 pb-24 pt-14 sm:px-6 lg:grid-cols-2 lg:px-8">
+        {/* هاله‌های نور محیطی هیرو */}
+        <div className="pointer-events-none absolute -top-32 left-1/2 h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[140px]" />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-[300px] w-[400px] rounded-full bg-fuchsia-500/10 blur-[120px]" />
+
         <div>
           <DateTimeBadge />
-          <span className="hero-tag inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 font-display text-[11px] uppercase tracking-[0.3em] text-cyan-300">
+          <span className="hero-tag mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 font-display text-[11px] uppercase tracking-[0.3em] text-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.25)]">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" /> Season 12 is live
           </span>
 
           <h1 className="mt-6 font-display font-black leading-[1.05] text-white">
             <Chars text="ENTER THE" className="block text-4xl sm:text-6xl" />
-            <Chars text="NEXUS ARENA" className="text-gradient block text-4xl sm:text-6xl xl:text-7xl" />
+            <Chars text="NEXUS ARENA" className="text-gradient block text-4xl drop-shadow-[0_0_35px_rgba(34,211,238,0.45)] sm:text-6xl xl:text-7xl" />
           </h1>
 
           <p className="hero-sub mt-6 max-w-lg text-lg text-slate-400">
             A next-generation gaming platform — ranked tournaments, live streams and an unstoppable community. Plug in. Level up.
+          </p>
+          <p className="hero-sub mt-2 max-w-lg text-sm leading-7 text-slate-500">
+            وارد آرنا شو — جایی که قهرمان‌ها ساخته می‌شوند. 🎮
           </p>
 
           <div className="mt-8 flex flex-wrap gap-4">
@@ -88,7 +95,7 @@ export default function Home() {
           <div className="mt-12 grid max-w-md grid-cols-3 gap-6">
             {stats.map((s) => (
               <div key={s.label} className="hero-stat">
-                <p className="font-display text-2xl font-bold text-white sm:text-3xl">
+                <p className="font-display text-2xl font-bold text-white drop-shadow-[0_0_18px_rgba(34,211,238,0.35)] sm:text-3xl">
                   <CountUp value={s.value} decimals={s.decimals || 0} suffix={s.suffix} />
                 </p>
                 <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-slate-500">{s.label}</p>
@@ -97,13 +104,26 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Hero visual */}
+        {/* Hero visual — هولوگرافیک */}
         <div className="hero-visual relative mx-auto w-full max-w-md">
           <motion.div animate={{ y: [0, -14, 0] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }} className="relative">
+            {/* 🌀 حلقه هولوگرافیک چرخان */}
+            <div
+              className="animate-spin-slow absolute -inset-10 rounded-full opacity-60"
+              style={{
+                background:
+                  'conic-gradient(from 0deg, transparent 0deg, rgba(34,211,238,.5) 60deg, transparent 120deg, transparent 180deg, rgba(232,121,249,.5) 240deg, transparent 300deg)',
+                maskImage: 'radial-gradient(circle, transparent 55%, black 57%, black 70%, transparent 72%)',
+                WebkitMaskImage: 'radial-gradient(circle, transparent 55%, black 57%, black 70%, transparent 72%)',
+              }}
+            />
             <div className="animate-spin-slow absolute -inset-8 rounded-full border border-dashed border-cyan-400/20" />
-            <div className="glass-strong relative rounded-3xl p-6 shadow-[0_0_80px_rgba(34,211,238,0.18)]">
+
+            <div className="glass-strong relative overflow-hidden rounded-3xl p-6 shadow-[0_0_80px_rgba(34,211,238,0.18)]">
+              {/* 📺 اسکن‌لاین سایبری */}
+              <div className="scanlines pointer-events-none absolute inset-0 opacity-[0.06]" />
               <div className="grid h-56 place-items-center rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-500/25 via-transparent to-fuchsia-500/25 sm:h-72">
-                <span className="text-7xl drop-shadow-[0_0_35px_rgba(34,211,238,0.7)] sm:text-8xl">🕹️</span>
+                <span className="animate-pulse text-7xl drop-shadow-[0_0_35px_rgba(34,211,238,0.7)] sm:text-8xl">🕹️</span>
               </div>
               <div className="mt-4 flex items-center justify-between rounded-xl glass px-4 py-3">
                 <div>
@@ -113,18 +133,23 @@ export default function Home() {
                 <Badge color="red" pulse>LIVE</Badge>
               </div>
             </div>
+
+            {/* چیپ‌های شناور */}
             <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="glass absolute -left-6 top-10 rounded-xl px-3 py-2 text-xs text-white shadow-lg">
               ⚡ +250 XP
             </motion.div>
             <motion.div animate={{ y: [0, 10, 0] }} transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }} className="glass absolute -right-4 bottom-16 rounded-xl px-3 py-2 text-xs text-white shadow-lg">
               🏆 Rank Up!
             </motion.div>
+            <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 1 }} className="glass absolute -bottom-6 left-8 rounded-xl px-3 py-2 text-xs text-white shadow-lg">
+              🛡️ Anti-Cheat Active
+            </motion.div>
           </motion.div>
         </div>
       </section>
 
-      {/* ---------- Marquee strip ---------- */}
-      <div className="relative overflow-hidden border-y border-white/10 bg-white/[0.02] py-4">
+      {/* ---------- Marquee strip با لبه‌های محو ---------- */}
+      <div className="relative overflow-hidden border-y border-white/10 bg-white/[0.02] py-4 [mask-image:linear-gradient(90deg,transparent,black_8%,black_92%,transparent)]">
         <div className="animate-marquee flex w-max gap-8">
           {[...marqueeItems, ...marqueeItems].map((t, i) => (
             <span key={i} className="flex items-center gap-8 whitespace-nowrap font-display text-sm uppercase tracking-[0.35em] text-slate-400">
@@ -144,7 +169,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------------- Earth Globe ---------- */}
+      {/* ---------------- Earth Globe ---------------- */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <SectionTitle
           center
@@ -155,8 +180,7 @@ export default function Home() {
         <EarthGlobe />
       </section>
 
-
-      {/* ---------- Features ---------- */}
+      {/* ---------- Features — هولوگرافیک ---------- */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <SectionTitle center tag="Why Nexus" title="Built for Champions" subtitle="Every system engineered for competitive perfection." />
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -168,8 +192,10 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ delay: i * 0.08 }}
               whileHover={{ y: -6 }}
-              className="glass group rounded-2xl p-6 transition-colors hover:border-cyan-400/30"
+              className="glass group relative overflow-hidden rounded-2xl p-6 transition-colors hover:border-cyan-400/30"
             >
+              {/* خط نور بالای کارت در هاور */}
+              <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
               <div className={`grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br text-xl shadow-lg ${f.accent}`}>
                 {f.icon}
               </div>
@@ -180,11 +206,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- CTA ---------- */}
+      {/* ---------- CTA با اسکن‌لاین ---------- */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-gradient-to-r from-cyan-500/10 via-fuchsia-500/10 to-violet-500/10 p-10 text-center md:p-16">
           <div className="pointer-events-none absolute -left-20 -top-20 h-64 w-64 rounded-full bg-cyan-500/20 blur-[100px]" />
           <div className="pointer-events-none absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-fuchsia-500/20 blur-[100px]" />
+          <div className="scanlines pointer-events-none absolute inset-0 opacity-[0.05]" />
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}

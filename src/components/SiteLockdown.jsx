@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LockKeyhole, ShieldCheck, LogIn, X, Loader2, Wrench, LogOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -10,32 +10,68 @@ const toFa = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const pad = (n) => String(n).padStart(2, '0');
 
 /* ─────────── نگهبان سراسری قفل سایت ───────────
-   - حالت زمان‌دار: شمارش معکوس تا تاریخ شمسی انتخابی ادمین
-   - حالت آپگرید: بدون تاریخ (تا بازکردن توسط ادمین)
+   - بدون فلش: تا آمدن وضعیت، اسپلش برند نمایش داده می‌شود
+   - 🔊 صدای قفل: فقط هنگام قفل شدن (نه باز شدن) + پخش خودکار بدون کلیک
+   - حالت زمان‌دار: شمارش معکوس / حالت آپگرید: بدون تاریخ
    - ورود مخصوص ادمین در هر دو حالت
-   - نمایش تاریخ/ساعت در هر دو حالت
 ─────────────────────────────────────────────── */
 export default function SiteLockdown() {
   const { user, profile, loading: authLoading, logout } = useAuth();
   const [settings, setSettings] = useState(null);
+  const [loaded, setLoaded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [adminOpen, setAdminOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const lockSoundPlayedRef = useRef(false);
 
   const isAdmin = profile?.role === 'admin';
 
+  /* 🔊 پخش خودکار صدای قفل — بدون نیاز به کلیک
+     ترفند: اول بی‌صدا (muted) شروع می‌کنیم که مرورگر اجازه دهد،
+     سپس ۱۲۰ms بعد صدا را وصل می‌کنیم. */
+  const playLockSound = () => {
+    try {
+      const a = new Audio('/audio/site-open.mp3');
+      a.volume = 0.9;
+      a.muted = true; // شروع بی‌صدا = مجاز از نظر Autoplay
+      a.play()
+        .then(() => {
+          setTimeout(() => {
+            a.muted = false; // وصل‌کردن صدا حین پخش
+            console.log('🔊 [SiteLockdown] صدای قفل به‌صورت خودکار پخش شد');
+          }, 120);
+        })
+        .catch((e) => {
+          // اگر حتی پخش بی‌صدا هم رد شد → با اولین کلیک پخش کن
+          console.warn('🔇 [SiteLockdown] پخش خودکار ممکن نبود؛ با اولین کلیک پخش می‌شود...', e?.name);
+          a.muted = false;
+          const unlock = () => {
+            window.removeEventListener('pointerdown', unlock);
+            window.removeEventListener('keydown', unlock);
+            a.play().catch(() => {});
+          };
+          window.addEventListener('pointerdown', unlock);
+          window.addEventListener('keydown', unlock);
+        });
+    } catch {}
+  };
+
   /* 📡 بارگذاری تنظیمات + Realtime */
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       const { data } = await supabase
         .from('site_settings')
         .select('*')
         .eq('id', 1)
         .maybeSingle();
-      if (data) setSettings(data);
+      if (!cancelled) {
+        if (data) setSettings(data);
+        setLoaded(true);
+      }
     };
     load();
 
@@ -46,7 +82,10 @@ export default function SiteLockdown() {
       })
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   /* ⏱ تیک هر ثانیه */
@@ -54,6 +93,64 @@ export default function SiteLockdown() {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  /* ── منطق قفل ── */
+  const locked = settings?.is_locked === true;
+  const timed = locked && !!settings?.lock_until;
+  const expired = timed && now >= new Date(settings.lock_until).getTime();
+  const active = locked && !expired;
+
+  /* 🔊 فقط هنگام «قفل شدن» صدا پخش شود (نه باز شدن) — و نه برای خود ادمین */
+  useEffect(() => {
+    if (!loaded || isAdmin) return;
+    if (active) {
+      if (!lockSoundPlayedRef.current) {
+        lockSoundPlayedRef.current = true;
+        playLockSound();
+      }
+    } else {
+      lockSoundPlayedRef.current = false; // آماده برای رویداد قفل بعدی
+    }
+  }, [active, loaded, isAdmin]);
+
+  /* ── اسپلش برند: تا آمدن وضعیت، سایت هرگز فلش نمی‌زند ── */
+  if (!loaded || authLoading) {
+    return (
+      <div className="fixed inset-0 z-[20000] grid place-items-center bg-[#050510]">
+        <div className="relative">
+          <span className="absolute inset-0 animate-ping rounded-2xl bg-cyan-400/20" />
+          <div className="relative grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-cyan-400 to-fuchsia-500 font-display text-2xl font-black text-slate-950 shadow-[0_0_60px_rgba(34,211,238,0.5)]">
+            N
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ادمین = عبور آزاد
+  if (isAdmin) return null;
+  // قفل فعال نیست
+  if (!active) return null;
+
+  /* شمارش معکوس */
+  let cd = null;
+  if (timed) {
+    const diff = Math.max(0, new Date(settings.lock_until).getTime() - now);
+    cd = {
+      d: Math.floor(diff / 86400000),
+      h: Math.floor((diff % 86400000) / 3600000),
+      m: Math.floor((diff % 3600000) / 60000),
+      s: Math.floor((diff % 60000) / 1000),
+    };
+  }
+
+  const untilFa = timed
+    ? new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+        timeZone: 'Asia/Tehran',
+      }).format(new Date(settings.lock_until))
+    : null;
 
   /* 🔐 ورود مخصوص ادمین */
   const handleAdminLogin = async (e) => {
@@ -80,53 +177,12 @@ export default function SiteLockdown() {
         setErr('⛔ فقط ادمین می‌تواند در زمان قفل سایت وارد شود');
         return;
       }
-      // ادمین معتبر: AuthContext خودکار آپدیت می‌شود و قفل برایش باز می‌شود
     } catch {
       setErr('خطایی رخ داد، دوباره تلاش کن');
     } finally {
       setBusy(false);
     }
   };
-
-  /* ── منطق نمایش ── */
-  const locked = settings?.is_locked === true;
-  const timed = locked && !!settings?.lock_until;
-  const expired = timed && now >= new Date(settings.lock_until).getTime();
-  const active = locked && !expired;
-
-  if (!active) return null;
-
-  // تا وقتی سشن در حال لود است، صفحه خالی نشان نده
-  if (authLoading) {
-    return (
-      <div className="fixed inset-0 z-[20000] grid place-items-center bg-[#050510]">
-        <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
-      </div>
-    );
-  }
-
-  // ادمین = عبور آزاد
-  if (isAdmin) return null;
-
-  /* شمارش معکوس */
-  let cd = null;
-  if (timed) {
-    const diff = Math.max(0, new Date(settings.lock_until).getTime() - now);
-    cd = {
-      d: Math.floor(diff / 86400000),
-      h: Math.floor((diff % 86400000) / 3600000),
-      m: Math.floor((diff % 3600000) / 60000),
-      s: Math.floor((diff % 60000) / 1000),
-    };
-  }
-
-  const untilFa = timed
-    ? new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-        timeZone: 'Asia/Tehran',
-      }).format(new Date(settings.lock_until))
-    : null;
 
   return (
     <div className="fixed inset-0 z-[20000] overflow-y-auto bg-[#050510]">

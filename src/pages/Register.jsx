@@ -10,8 +10,9 @@ import { cn } from '../utils/cn';
 
 const strengthLabels = ['Too weak', 'Weak', 'Okay', 'Good', 'Strong', 'Elite'];
 const strengthColors = ['bg-rose-500', 'bg-orange-500', 'bg-amber-400', 'bg-lime-400', 'bg-emerald-400', 'bg-cyan-400'];
+const strengthText = ['text-rose-400', 'text-orange-400', 'text-amber-300', 'text-lime-300', 'text-emerald-300', 'text-cyan-300'];
 
-// 📜 قوانین آرنا
+/* 📜 قوانین آرنا */
 const RULES = [
   { icon: HeartHandshake, color: 'from-cyan-400 to-blue-500', title: 'احترام به همه', desc: 'توهین، قلدری و تبعیض = مسدودیت فوری.' },
   { icon: UserX, color: 'from-rose-500 to-red-600', title: 'بدون تقلب', desc: 'چیت، هک و سوءاستفاده از باگ = بن دائم.' },
@@ -28,10 +29,10 @@ const Spinner = () => (
   />
 );
 
+/* ─────────── Register — NEXUS UI v6 ─────────── */
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
-
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -73,6 +74,8 @@ export default function Register() {
 
   return (
     <div className="relative min-h-screen overflow-hidden px-4 py-16">
+      <style>{`@keyframes scanY { 0% { top: -10%; } 100% { top: 110%; } }`}</style>
+
       {/* ─────────── پس‌زمینه‌ی زنده ─────────── */}
       <div className="pointer-events-none fixed inset-0">
         <div className="bg-grid absolute inset-0 opacity-30" />
@@ -99,7 +102,17 @@ export default function Register() {
           <div className="relative overflow-hidden rounded-3xl p-[1.5px]">
             <div className="absolute inset-[-200%] animate-[spin_7s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,#22d3ee_80deg,transparent_160deg,#e879f9_240deg,transparent_320deg)]" />
 
-            <div className="relative rounded-3xl bg-[#0a0c1e]/95 p-8 backdrop-blur-2xl">
+            <div className="glass-strong relative overflow-hidden rounded-3xl p-8">
+              {/* خط اسکن متحرک */}
+              <div className="pointer-events-none absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/60 to-transparent animate-[scanY_3.5s_linear_infinite]" />
+
+              {/* تگ HUD */}
+              <div className="mb-4 flex items-center justify-center gap-2 font-display text-[9px] uppercase tracking-[0.35em] text-fuchsia-400/70">
+                <span className="h-1 w-1 rounded-full bg-fuchsia-400 shadow-[0_0_8px_rgba(232,121,249,0.9)]" />
+                New Recruit // Registration
+                <span className="h-1 w-1 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.9)]" />
+              </div>
+
               {/* لوگو */}
               <div className="mb-6 text-center">
                 <div className="relative mx-auto mb-4 h-16 w-16">
@@ -110,9 +123,7 @@ export default function Register() {
                 </div>
                 <h1 className="font-display text-2xl font-black tracking-wide text-white">
                   CREATE{' '}
-                  <span className="bg-gradient-to-r from-fuchsia-400 to-cyan-400 bg-clip-text text-transparent">
-                    ACCOUNT
-                  </span>
+                  <span className="text-gradient">ACCOUNT</span>
                 </h1>
                 <p className="mt-1 text-sm text-slate-400">به ۲.۴ میلیون بازیکن آرنا بپیوند!</p>
               </div>
@@ -124,7 +135,7 @@ export default function Register() {
                 transition={{ duration: 0.4 }}
               >
                 {error && (
-                  <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+                  <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.2)]">
                     ⚠ {error}
                   </div>
                 )}
@@ -141,10 +152,9 @@ export default function Register() {
                     minLength={3}
                     autoComplete="username"
                     placeholder="ShadowHunter"
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-4 pr-10 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400/60 focus:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-4 pr-10 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400/60"
                   />
                 </div>
-
                 {/* ایمیل */}
                 <div className="group relative">
                   <Mail className="absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-300" />
@@ -155,10 +165,9 @@ export default function Register() {
                     required
                     autoComplete="email"
                     placeholder="player@nexus.gg"
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-4 pr-10 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400/60 focus:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-4 pr-10 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400/60"
                   />
                 </div>
-
                 {/* رمز + قدرت‌سنج */}
                 <div className="group relative">
                   <Lock className="absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-cyan-300" />
@@ -170,7 +179,7 @@ export default function Register() {
                     minLength={6}
                     autoComplete="new-password"
                     placeholder="••••••••"
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-10 pr-10 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400/60 focus:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-10 pr-10 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400/60"
                   />
                   <button
                     type="button"
@@ -181,7 +190,7 @@ export default function Register() {
                   </button>
                 </div>
 
-                {/* نوار قدرت رمز */}
+                {/* نوار قدرت رمز — نئونی */}
                 {form.password && (
                   <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="space-y-1.5">
                     <div className="flex gap-1.5">
@@ -190,13 +199,13 @@ export default function Register() {
                           key={i}
                           className={cn(
                             'h-1.5 flex-1 rounded-full transition-colors duration-300',
-                            i < score ? strengthColors[score] : 'bg-white/10'
+                            i < score ? cn(strengthColors[score], 'shadow-[0_0_10px_rgba(34,211,238,0.4)]') : 'bg-white/10'
                           )}
                         />
                       ))}
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      قدرت رمز: <span className="font-bold text-slate-300">{strengthLabels[score]}</span>
+                      قدرت رمز: <span className={cn('font-bold', strengthText[score])}>{strengthLabels[score]}</span>
                     </p>
                   </motion.div>
                 )}
@@ -217,7 +226,7 @@ export default function Register() {
                         ? 'border-rose-500/60 focus:shadow-[0_0_20px_rgba(244,63,94,0.25)]'
                         : form.confirm && form.confirm === form.password
                         ? 'border-emerald-400/60 focus:shadow-[0_0_20px_rgba(52,211,153,0.25)]'
-                        : 'border-white/10 focus:border-cyan-400/60 focus:shadow-[0_0_20px_rgba(34,211,238,0.2)]'
+                        : 'border-white/10 focus:border-cyan-400/60'
                     )}
                   />
                   {form.confirm && (
@@ -279,14 +288,16 @@ export default function Register() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08 }}
                 whileHover={{ x: -4 }}
-                className="group flex items-center gap-4 rounded-2xl border border-white/5 bg-white/5 p-4 transition-colors hover:border-cyan-400/30 hover:bg-white/10"
+                className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-white/5 bg-white/5 p-4 transition-colors hover:border-cyan-400/30 hover:bg-white/10"
               >
+                {/* خط نور بالای کارت در هاور */}
+                <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                 <div className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br shadow-lg', r.color)}>
                   <r.icon className="h-5 w-5 text-slate-950" />
                 </div>
                 <div className="min-w-0">
                   <p className="flex items-center gap-2 text-sm font-bold text-white">
-                    <span className="font-display text-[10px] text-cyan-400">۰{i + 1}</span>
+                    <span className="font-display text-[10px] text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]">۰{i + 1}</span>
                     {r.title}
                   </p>
                   <p className="mt-0.5 text-xs leading-5 text-slate-400">{r.desc}</p>
@@ -295,7 +306,7 @@ export default function Register() {
             ))}
           </div>
 
-          <div className="mt-6 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-center text-[11px] text-amber-300/80">
+          <div className="mt-6 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-center text-[11px] text-amber-300/80 shadow-[inset_0_1px_0_rgba(251,191,36,0.15)]">
             ⚡ ثبت‌نام به‌معنی پذیرش همه‌ی قوانین بالاست
           </div>
         </motion.div>
