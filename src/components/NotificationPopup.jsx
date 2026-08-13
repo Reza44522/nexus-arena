@@ -99,7 +99,8 @@ export default function NotificationPopup() {
     if (!current) return;
     const n = current;
     setQueue((q) => q.slice(1));
-    await supabase.from('notification_reads').insert({ notification_id: n.id, user_id: user.id });
+        await supabase.from('notification_reads').insert({ notification_id: n.id, user_id: user.id });
+    await supabase.from('notifications').update({ read: true }).eq('id', n.id);
   };
 
   /* ✖ بستن بدون خوانده‌کردن */

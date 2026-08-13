@@ -9,6 +9,8 @@ import NeonButton from '../components/ui/NeonButton';
 import ReportsTab from '../components/admin/ReportsTab';
 import TicketsTab from '../components/admin/TicketsTab';
 import StreamControlTab from '../components/admin/StreamControlTab';
+import TournamentsTab from '../components/admin/TournamentsTab';
+import NewsModerationTab from '../components/admin/NewsModerationTab';
 import SiteLockControl from '../components/admin/SiteLockControl';
 import { cn } from '../utils/cn';
 
@@ -144,7 +146,9 @@ export default function Admin() {
     { id: 'tickets', label: '🎫 تیکت‌ها' },
     { id: 'stream', label: '🎛 استریم' },
     { id: 'notify', label: '📢 اعلانات' },
-    { id: 'lock', label: '🔒 قفل سایت' },
+        { id: 'lock', label: '🔒 قفل سایت' },
+        { id: 'tournaments', label: '🏟 تورنومنت‌ها' },
+    { id: 'news', label: '📰 اخبار' },
   ];
 
   return (
@@ -287,7 +291,13 @@ export default function Admin() {
         {activeTab === 'stream' && <StreamControlTab />}
 
         {/* 🔒 قفل سایت */}
-        {activeTab === 'lock' && <SiteLockControl />}
+                {activeTab === 'lock' && <SiteLockControl />}
+
+        {/* تورنومنت‌ها */}
+                {activeTab === 'tournaments' && <TournamentsTab />}
+
+        {/* اخبار */}
+        {activeTab === 'news' && <NewsModerationTab />}
 
         {/* اعلانات */}
         {activeTab === 'notify' && (
