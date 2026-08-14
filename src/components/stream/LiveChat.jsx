@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { Send, Lock, LogIn, Radio } from 'lucide-react';
 import { useAuth, getActiveRestriction } from '../../context/AuthContext';
 import { useChat } from '../../hooks/useChat';
 import { cn } from '../../utils/cn';
+
+/* گوشه‌های بریده‌شده سایبری */
+const CLIP = '[clip-path:polygon(0_0,calc(100%-22px)_0,100%_22px,100%_100%,22px_100%,0_calc(100%-22px))]';
+const CLIP_SM = '[clip-path:polygon(0_0,calc(100%-12px)_0,100%_12px,100%_100%,12px_100%,0_calc(100%-12px))]';
 
 const roleColors = {
   admin: 'text-rose-300',
@@ -12,18 +17,19 @@ const roleColors = {
   user: 'text-cyan-300',
 };
 
-const roleLabels = {
-  admin: 'ADMIN',
-  mod: 'MOD',
-  vip: 'VIP',
+const roleChips = {
+  admin: 'border-rose-400/40 bg-rose-400/10 text-rose-300 shadow-[0_0_10px_rgba(248,113,113,0.3)]',
+  mod: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.3)]',
+  vip: 'border-amber-400/40 bg-amber-400/10 text-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.3)]',
 };
+
+const roleLabels = { admin: 'ADMIN', mod: 'MOD', vip: 'VIP' };
 
 function MessageItem({ m }) {
   const time = new Date(m.created_at).toLocaleTimeString('fa-IR', {
     hour: '2-digit',
     minute: '2-digit',
   });
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -31,7 +37,7 @@ function MessageItem({ m }) {
       transition={{ duration: 0.25 }}
       className="flex items-start gap-2.5"
     >
-      <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-cyan-500 to-fuchsia-500 text-xs font-bold text-slate-950">
+      <div className={cn('mt-0.5 grid h-8 w-8 shrink-0 place-items-center bg-gradient-to-br from-cyan-500 to-fuchsia-500 text-xs font-bold text-slate-950', CLIP_SM)}>
         {m.username.slice(0, 2).toUpperCase()}
       </div>
       <div className="min-w-0 flex-1">
@@ -40,18 +46,19 @@ function MessageItem({ m }) {
             {m.username}
           </span>
           {roleLabels[m.role] && (
-            <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-bold">
+            <span className={cn('border px-1.5 py-0.5 text-[8px] font-black tracking-widest', CLIP_SM, roleChips[m.role])}>
               {roleLabels[m.role]}
             </span>
           )}
           <span className="text-[10px] text-slate-500">{time}</span>
         </div>
-        <p className="break-words text-sm text-slate-200">{m.message}</p>
+        <p className="mt-0.5 break-words text-sm leading-6 text-slate-200">{m.message}</p>
       </div>
     </motion.div>
   );
 }
 
+/* ─────────── LiveChat v7 — ARENA CHAT ─────────── */
 export default function LiveChat() {
   const { user, profile } = useAuth();
   const { messages, loading, sendMessage } = useChat(100);
@@ -77,29 +84,12 @@ export default function LiveChat() {
     setAutoScroll(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
   };
 
-  // ✅ تابع ارسال با خطوط debug
   const send = async (e) => {
     e.preventDefault();
     const value = text.trim();
-
-    // 🔍 DEBUG: بررسی شرایط
-    console.log('🔍 بررسی شرایط ارسال:', {
-      متن: value,
-      لاگین: !!user,
-      مسدود: isBlocked,
-    });
-
-    if (!value || !user || isBlocked) {
-      console.log('❌ شرایط ارسال برقرار نیست!');
-      return;
-    }
-
-    console.log('🚀 در حال ارسال پیام به Supabase...');
+    if (!value || !user || isBlocked) return;
     const res = await sendMessage(value, user, profile);
-    console.log('📨 نتیجه ارسال:', res);
-
     if (res.ok) {
-      console.log('✅ پیام با موفقیت ارسال شد');
       setText('');
       setAutoScroll(true);
     } else {
@@ -108,15 +98,30 @@ export default function LiveChat() {
   };
 
   return (
-    <div className="glass-strong flex h-[32rem] flex-col overflow-hidden rounded-2xl lg:h-full">
+    <div className={cn('relative flex h-[32rem] flex-col overflow-hidden border border-cyan-400/30 bg-[#070b18]/90 backdrop-blur-2xl lg:h-full', CLIP)}>
+      <style>{`
+        @keyframes lcScan { 0% { top: -10%; } 100% { top: 110%; } }
+        @keyframes lcBlink { 0%,100% { opacity: 1; } 50% { opacity: .2; } }
+      `}</style>
+
+      {/* خط اسکن + براکت‌ها */}
+      <div className="pointer-events-none absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" style={{ animation: 'lcScan 4.5s linear infinite' }} />
+      <span className="pointer-events-none absolute left-2 top-2 z-10 h-3 w-3 border-l-2 border-t-2 border-cyan-400/60" />
+      <span className="pointer-events-none absolute bottom-2 right-2 z-10 h-3 w-3 border-b-2 border-r-2 border-fuchsia-400/60" />
+
+      {/* ─────────── هدر HUD ─────────── */}
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <h3 className="font-display text-xs font-bold uppercase tracking-[0.3em] text-white">Live Chat</h3>
+        <h3 className="flex items-center gap-2 font-display text-[10px] font-black uppercase tracking-[0.3em] text-white">
+          <Radio size={13} className="text-cyan-300" />
+          Arena Chat
+        </h3>
         <span className="flex items-center gap-1.5 text-[11px] text-emerald-300">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+          <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" style={{ animation: 'lcBlink 1.4s infinite' }} />
           آنلاین
         </span>
       </div>
 
+      {/* ─────────── پیام‌ها ─────────── */}
       <div className="relative flex-1">
         <div
           ref={listRef}
@@ -142,23 +147,24 @@ export default function LiveChat() {
               const el = listRef.current;
               if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
             }}
-            className="glass absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[11px] text-cyan-300 shadow hover:bg-white/10"
+            className={cn('absolute bottom-3 left-1/2 -translate-x-1/2 border border-cyan-400/40 bg-[#070b18]/95 px-3 py-1 text-[11px] font-bold text-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.35)] backdrop-blur transition hover:bg-cyan-400/10', CLIP_SM)}
           >
             ↓ پیام‌های جدید
           </button>
         )}
       </div>
 
-      {/* پایین: سه حالت (فرم / مسدود / ورود) */}
+      {/* ─────────── پایین: سه حالت ─────────── */}
       {user && !isBlocked ? (
         <form onSubmit={send} className="space-y-2 border-t border-white/10 p-3">
+          {/* ایموجی‌بار زاویه‌دار */}
           <div className="flex gap-1.5">
-            {['🔥', 'GG', '😂', '⚡', '💜'].map((em) => (
+            {['🔥', 'GG', '😂', '', '💜'].map((em) => (
               <button
                 key={em}
                 type="button"
                 onClick={() => setText((t) => `${t}${t ? ' ' : ''}${em}`)}
-                className="glass rounded-lg px-2 py-1 text-xs transition hover:bg-white/10"
+                className={cn('border border-white/10 bg-white/5 px-2 py-1 text-xs transition hover:border-cyan-400/40 hover:bg-cyan-400/10', CLIP_SM)}
               >
                 {em}
               </button>
@@ -170,23 +176,25 @@ export default function LiveChat() {
               onChange={(e) => setText(e.target.value)}
               placeholder="پیامی بنویسید…"
               maxLength={500}
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/50 focus:shadow-[0_0_16px_rgba(34,211,238,0.2)]"
+              className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-700 focus:border-cyan-400/50"
             />
             <motion.button
               whileTap={{ scale: 0.92 }}
               type="submit"
               disabled={!text.trim()}
-              className="rounded-xl bg-gradient-to-br from-cyan-400 to-fuchsia-500 px-4 font-display text-xs font-bold uppercase tracking-wider text-slate-950 shadow-glow-cyan disabled:opacity-40"
+              className={cn('grid w-12 place-items-center bg-gradient-to-br from-cyan-400 to-fuchsia-500 text-slate-950 shadow-[0_0_16px_rgba(34,211,238,0.4)] transition-all hover:shadow-[0_0_26px_rgba(34,211,238,0.6)] disabled:opacity-40', CLIP_SM)}
             >
-              ارسال
+              <Send size={15} />
             </motion.button>
           </div>
         </form>
       ) : isBlocked ? (
         <div className="border-t border-white/10 p-4 text-center">
-          <p className="text-xs font-bold text-rose-400">🔒 شما از چت مسدود شده‌اید</p>
+          <p className={cn('flex items-center justify-center gap-2 border border-red-400/30 bg-red-400/10 p-2.5 text-xs font-bold text-red-400', CLIP_SM)}>
+            <Lock size={12} /> شما از چت مسدود شده‌اید
+          </p>
           {profile?.restrict_reason && (
-            <p className="mt-1 text-[10px] text-slate-500">دلیل: {profile.restrict_reason}</p>
+            <p className="mt-2 text-[10px] text-slate-500">دلیل: {profile.restrict_reason}</p>
           )}
           {profile?.restrict_until && (
             <p className="mt-1 text-[10px] text-slate-500">
@@ -199,9 +207,9 @@ export default function LiveChat() {
           <p className="mb-3 text-xs text-slate-400">برای شرکت در چت وارد شوید</p>
           <Link
             to="/login"
-            className="inline-block rounded-xl bg-gradient-to-br from-cyan-400 to-fuchsia-500 px-5 py-2 font-display text-xs font-bold uppercase tracking-wider text-slate-950"
+            className={cn('inline-flex items-center gap-2 bg-gradient-to-br from-cyan-400 to-fuchsia-500 px-5 py-2 font-display text-xs font-black uppercase tracking-wider text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.4)] transition-all hover:shadow-[0_0_28px_rgba(34,211,238,0.6)]', CLIP_SM)}
           >
-            ورود به چت
+            <LogIn size={13} /> ورود به چت
           </Link>
         </div>
       )}

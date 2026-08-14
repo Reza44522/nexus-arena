@@ -27,7 +27,11 @@ const MAX_VID = 10 * 1024 * 1024;  // 10MB
 
 const toFa = (n) => String(n ?? 0).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
-/* ─────────── News v7 — NEXUS FEED + نظرات اختیاری ─────────── */
+/* ─────────── News v7 — NEXUS FEED (نهایی) ───────────
+   ✅ فید عمومی = فقط پست‌های تأییدشده
+   ✅ پست‌های در انتظار من = نوار خصوصی (فقط خودم)
+   ✅ بازدید یکتا = یک سین برای هر کاربر (news_views)
+─────────────────────────────────────────────────── */
 export default function News() {
   const { user, profile } = useAuth();
   const [posts, setPosts] = useState([]);
@@ -90,7 +94,7 @@ export default function News() {
     setComments(data || []);
   };
 
-  /* Realtime پست‌ها + نظرات */
+  /* Realtime پست‌ها + واکنش‌ها */
   useEffect(() => {
     load();
     const ch = supabase
@@ -102,7 +106,7 @@ export default function News() {
     // eslint-disable-next-line
   }, [user?.id]);
 
-  /* Realtime نظرات وقتی مودال خواندن باز است */
+  /* Realtime نظرات وقتی مودال باز است */
   useEffect(() => {
     if (!reader?.id) return;
     loadComments(reader.id);
@@ -114,9 +118,10 @@ export default function News() {
     // eslint-disable-next-line
   }, [reader?.id]);
 
-  const visible = posts.filter(
-    (p) => p.status === 'approved' || p.author_id === user?.id || isAdmin
-  );
+  /* ✅ فید عمومی = فقط تأییدشده‌ها */
+  const visible = posts.filter((p) => p.status === 'approved');
+  /* ✅ پست‌های در انتظار/رد شده‌ی من (فقط خودم می‌بینم) */
+  const myPending = posts.filter((p) => p.author_id === user?.id && p.status !== 'approved');
   const filtered = filter === 'all' ? visible : visible.filter((p) => p.category === filter);
 
   /* ❤️ واکنش لایک/دیسلایک */
@@ -146,13 +151,26 @@ export default function News() {
     setMyReacts((prev) => ({ ...prev, [p.id]: prev[p.id] === type ? undefined : type }));
   };
 
-  /* 👁 باز کردن پست = ثبت بازدید + بارگذاری نظرات */
+  /* 👁 بازدید یکتا: هر کاربر فقط یک سین */
   const openPost = async (p) => {
     setReader(p);
     setComments([]);
     setCommentText('');
-    await supabase.rpc('view_news', { p_post_id: p.id });
-    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, views: (x.views || 0) + 1 } : x)));
+    const bump = () => setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, views: (x.views || 0) + 1 } : x)));
+    if (user?.id) {
+      const { error } = await supabase.from('news_views').insert({ post_id: p.id, user_id: user.id });
+      if (!error) {
+        await supabase.rpc('view_news', { p_post_id: p.id });
+        bump();
+      }
+    } else {
+      const key = 'nx_viewed_' + p.id;
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        await supabase.rpc('view_news', { p_post_id: p.id });
+        bump();
+      }
+    }
   };
 
   /* 💬 ارسال نظر */
@@ -168,7 +186,6 @@ export default function News() {
     loadComments(reader.id);
   };
 
-  /* 🗑 حذف نظر (خود نظر یا ادمین) */
   const deleteComment = async (c) => {
     const { error } = await supabase.from('news_comments').delete().eq('id', c.id);
     if (error) return flash('err', '❌ ' + error.message);
@@ -285,7 +302,6 @@ export default function News() {
             <p className="mt-3 text-sm text-slate-500">اخبار جامعه آرنا — بنویس، بخوان، واکنش نشان بده!</p>
           </div>
 
-          {/* دکمه پست جدید */}
           {user ? (
             canPost ? (
               <button
@@ -306,6 +322,25 @@ export default function News() {
           )}
         </div>
 
+        {/* ─────────── نوار خصوصی پست‌های در انتظار من ─────────── */}
+        {user && myPending.length > 0 && (
+          <div className={cn('mb-8 border border-amber-400/25 bg-[#070b18]/85 p-4 backdrop-blur-xl', CLIP)}>
+            <p className="mb-3 flex items-center gap-2 font-display text-[10px] uppercase tracking-[0.3em] text-amber-300">
+              <Hourglass size={12} /> پست‌های من — فقط خودت می‌بینی
+            </p>
+            <div className="space-y-2">
+              {myPending.map((p) => (
+                <div key={p.id} className={cn('flex items-center gap-3 border border-white/5 bg-white/5 px-3 py-2', CLIP_SM)}>
+                  <span className="flex-1 truncate text-xs font-bold text-white">{p.title}</span>
+                  <span className={cn('border px-2 py-0.5 text-[9px] font-bold', CLIP_SM, p.status === 'pending' ? 'border-amber-400/40 bg-amber-400/10 text-amber-300' : 'border-red-400/40 bg-red-400/10 text-red-400')}>
+                    {p.status === 'pending' ? 'در انتظار تأیید' : 'رد شده'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* فیلتر دسته‌ها */}
         <div className="mb-10 flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
@@ -325,7 +360,7 @@ export default function News() {
           ))}
         </div>
 
-        {/* ─────────── کارت‌های پست ─────────── */}
+        {/* ─────────── کارت‌های پست (فقط تأییدشده‌ها) ─────────── */}
         {loading ? (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((i) => (
@@ -355,7 +390,6 @@ export default function News() {
                   <span className="pointer-events-none absolute left-2 top-2 z-10 h-4 w-4 border-l-2 border-t-2 border-cyan-400/40 opacity-0 transition-opacity group-hover:opacity-100" />
                   <span className="pointer-events-none absolute bottom-2 right-2 z-10 h-4 w-4 border-b-2 border-r-2 border-fuchsia-400/40 opacity-0 transition-opacity group-hover:opacity-100" />
 
-                  {/* مدیا */}
                   {p.media_url && (
                     <div className="relative h-48 overflow-hidden border-b border-white/10 bg-black/40">
                       {p.media_type === 'video' ? (
@@ -370,7 +404,6 @@ export default function News() {
                   )}
 
                   <div className="flex flex-1 flex-col p-5">
-                    {/* متا */}
                     <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px]">
                       <span className={cn('border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 font-bold text-cyan-300', CLIP_SM)}>
                         {CAT_LABEL[p.category] || 'عمومی'}
@@ -380,30 +413,19 @@ export default function News() {
                           <MessageSquare size={10} /> نظرات باز
                         </span>
                       )}
-                      {p.status === 'pending' && (
-                        <span className={cn('flex items-center gap-1 border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 font-bold text-amber-300', CLIP_SM)}>
-                          <Hourglass size={10} /> در انتظار تأیید
-                        </span>
-                      )}
-                      {p.status === 'rejected' && (
-                        <span className={cn('border border-red-400/30 bg-red-400/10 px-2 py-0.5 font-bold text-red-400', CLIP_SM)}>
-                          رد شده
-                        </span>
-                      )}
                       <span className="mr-auto flex items-center gap-1 text-slate-500">
                         <Clock size={10} /> {new Date(p.created_at).toLocaleDateString('fa-IR')}
                       </span>
                     </div>
 
                     <h3
-                      onClick={() => p.status === 'approved' && openPost(p)}
+                      onClick={() => openPost(p)}
                       className="cursor-pointer font-display text-lg font-bold text-white transition-colors group-hover:text-cyan-300"
                     >
                       {p.title}
                     </h3>
                     <p className="mt-2 line-clamp-3 flex-1 text-sm leading-6 text-slate-400">{p.content}</p>
 
-                    {/* نویسنده */}
                     <div className="mt-4 flex items-center gap-2 border-t border-white/5 pt-3">
                       <div className={cn('grid h-7 w-7 place-items-center bg-gradient-to-br from-cyan-400 to-fuchsia-500 text-[10px] font-black text-slate-950', CLIP_SM)}>
                         {(p.author?.username || '?').slice(0, 2).toUpperCase()}
@@ -414,7 +436,6 @@ export default function News() {
                       </span>
                     </div>
 
-                    {/* واکنش‌ها */}
                     <div className="mt-3 flex items-center gap-2">
                       <motion.button
                         whileTap={{ scale: 0.85 }}
@@ -443,7 +464,7 @@ export default function News() {
                         <ThumbsDown size={12} /> {toFa(p.dislikes)}
                       </motion.button>
                       <button
-                        onClick={() => p.status === 'approved' && openPost(p)}
+                        onClick={() => openPost(p)}
                         className="mr-auto text-xs font-bold text-cyan-300 transition hover:text-cyan-200"
                       >
                         ادامه مطلب ←
@@ -518,7 +539,6 @@ export default function News() {
                 className="w-full resize-none rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-700 focus:border-cyan-400/50"
               />
 
-              {/* 💬 فعال‌سازی نظرات */}
               <label className="mt-4 flex cursor-pointer items-center gap-2 text-xs text-slate-400">
                 <input
                   type="checkbox"
@@ -530,7 +550,6 @@ export default function News() {
                 فعال‌سازی نظرات برای این پست
               </label>
 
-              {/* آپلود مدیا */}
               <label className="mb-1.5 mt-4 block font-display text-[9px] uppercase tracking-[0.28em] text-slate-500">
                 عکس / ویدیو (اختیاری — عکس ≤۲MB، ویدیو ≤۱۰MB)
               </label>
@@ -613,7 +632,7 @@ export default function News() {
                 <span className="mr-auto flex items-center gap-1"><User size={13} /> {reader.author?.username}</span>
               </div>
 
-              {/* 💬 بخش نظرات — فقط اگر فعال باشد */}
+              {/* 💬 نظرات — فقط اگر فعال باشد */}
               {reader.comments_enabled && (
                 <div className="mt-5 border-t border-white/10 pt-4">
                   <p className="flex items-center gap-2 font-display text-[10px] uppercase tracking-[0.3em] text-fuchsia-300">
@@ -655,7 +674,6 @@ export default function News() {
                     )}
                   </div>
 
-                  {/* ارسال نظر */}
                   {user ? (
                     <div className="mt-3 flex items-center gap-2">
                       <input

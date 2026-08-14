@@ -6,6 +6,7 @@ import * as AuthModule from './context/AuthContext';
 import { supabase } from './lib/supabase';
 import WarningAlert from './components/WarningAlert';
 import NotificationPopup from './components/NotificationPopup';
+import PresenceHeartbeat from './components/PresenceHeartbeat';
 import SiteLockdown from './components/SiteLockdown';
 import SiteLockControl from './components/admin/SiteLockControl';
 import Profile from './pages/Profile';
@@ -315,7 +316,8 @@ export default function App() {
       <BanChecker />
       <DeletedAccountGuard />
       <WarningAlert />
-      <NotificationPopup />
+            <NotificationPopup />
+      <PresenceHeartbeat />
 
       {/* 🎨 انیمیشن‌های پس‌زمینه */}
       <BackgroundFX />

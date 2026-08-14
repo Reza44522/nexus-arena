@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, UserPlus, UserX, Flag, Wifi, Users, Inbox, Send, Ban } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useFriends } from '../hooks/useFriends';
+import { useFriends, isOnlineNow } from '../hooks/useFriends';
 import PrivateChatModal from '../components/friends/PrivateChatModal';
 import NeonButton from '../components/ui/NeonButton';
 import { cn } from '../utils/cn';
@@ -211,7 +211,7 @@ export default function Friends() {
           ) : (
             <div className="chat-scroll max-h-72 space-y-2 overflow-y-auto pl-2">
               {findList.map((u) => {
-                const isOnline = u.status === 'active';
+                            const isOnline = isOnlineNow(u);
                 return (
                   <motion.div
                     key={u.id}
@@ -280,7 +280,7 @@ export default function Friends() {
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {friends.map((f) => {
                     const fp = f.user_id === user?.id ? f.friend_profile : f.profile;
-                    const isOnline = fp?.status === 'active';
+                                    const isOnline = isOnlineNow(fp);
                     return (
                       <motion.div
                         key={f.id}
