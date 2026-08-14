@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, UserPlus, UserX, Flag, Wifi, Users, Inbox, Send, Ban } from 'lucide-react';
+import { Search, UserPlus, UserX, Flag, Wifi, Users, Inbox, Send, Ban, Bell, BellOff } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useFriends, isOnlineNow } from '../hooks/useFriends';
 import PrivateChatModal from '../components/friends/PrivateChatModal';
@@ -12,7 +13,7 @@ import { cn } from '../utils/cn';
 const CLIP = '[clip-path:polygon(0_0,calc(100%-22px)_0,100%_22px,100%_100%,22px_100%,0_calc(100%-22px))]';
 const CLIP_SM = '[clip-path:polygon(0_0,calc(100%-12px)_0,100%_12px,100%_100%,12px_100%,0_calc(100%-12px))]';
 
-/* ─────────── Friends v7 — NETWORK HUB ─────────── */
+/* ─────────── Friends v7 — NETWORK HUB + سوئیچ اعلان ─────────── */
 export default function Friends() {
   const { user, reportUser } = useAuth();
   const navigate = useNavigate();
@@ -32,6 +33,7 @@ export default function Friends() {
   const [reportTarget, setReportTarget] = useState(null);
   const [reportReason, setReportReason] = useState('');
   const [notice, setNotice] = useState('');
+  const [notifyIds, setNotifyIds] = useState(new Set());
 
   const showNotice = (msg) => {
     setNotice(msg);
@@ -44,6 +46,36 @@ export default function Friends() {
     getOnlineUsers().then(setOnlineUsers);
   }, [user?.id, friends.length, blocked.length, blockedBy.length]);
 
+  // 🔔 بارگذاری ترجیحات اعلان
+  useEffect(() => {
+    if (!user?.id) return;
+    const load = async () => {
+      const { data } = await supabase
+        .from('friend_notifications')
+        .select('friend_id, enabled')
+        .eq('user_id', user.id);
+      setNotifyIds(new Set((data || []).filter((r) => r.enabled).map((r) => r.friend_id)));
+    };
+    load();
+  }, [user?.id]);
+
+  // 🔔 روشن/خاموش کردن اعلان یک دوست
+  const toggleNotify = async (friendId, username) => {
+    const enabled = !notifyIds.has(friendId);
+    setNotifyIds((prev) => {
+      const n = new Set(prev);
+      if (enabled) n.add(friendId);
+      else n.delete(friendId);
+      return n;
+    });
+    const { error } = await supabase.from('friend_notifications').upsert(
+      { user_id: user.id, friend_id: friendId, enabled },
+      { onConflict: 'user_id,friend_id' }
+    );
+    if (error) showNotice('❌ ' + error.message);
+    else showNotice(enabled ? `🔔 اعلان پیام‌های ${username} روشن شد` : `🔕 اعلان پیام‌های ${username} خاموش شد`);
+  };
+
   const handleSearch = async (value) => {
     setSearchQuery(value);
     if (value.trim().length < 2) { setSearchResults([]); return; }
@@ -52,13 +84,11 @@ export default function Friends() {
     setSearching(false);
   };
 
-  // وضعیت هر کاربر برای دکمه هوشمند
   const friendIds = new Set(friends.map((f) => (f.user_id === user?.id ? f.friend_profile?.id : f.profile?.id)));
   const sentIds = new Set(sentRequests.map((r) => r.profile?.id));
   const blockedIds = new Set(blocked.map((b) => b.blocked_id));
   const findList = searchQuery.trim().length >= 2 ? searchResults : onlineUsers;
 
-  // ─────────── اکشن‌ها ───────────
   const handleAddFriend = async (t) => {
     const res = await sendRequest(t.id);
     showNotice(res.ok ? `✅ درخواست دوستی برای ${t.username} ارسال شد` : `❌ ${res.error || 'امکان ارسال درخواست نیست'}`);
@@ -93,7 +123,6 @@ export default function Friends() {
   };
   const openReport = (t) => { setReportTarget(t); setShowReportModal(true); };
 
-  // دکمه هوشمند برای هر کاربر در Find Players
   const renderActionButton = (u) => {
     if (blockedIds.has(u.id)) {
       return <NeonButton size="sm" variant="ghost" onClick={() => handleUnblock(u)}>Unblock</NeonButton>;
@@ -149,6 +178,22 @@ export default function Friends() {
         <div className="absolute -top-40 left-1/2 h-[380px] w-[760px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[130px]" />
       </div>
 
+      {/* Toast */}
+      <AnimatePresence>
+        {notice && (
+          <div className="pointer-events-none fixed left-0 right-0 top-24 z-[70] flex justify-center px-4">
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className={cn('border bg-slate-950/95 px-5 py-2.5 text-sm text-white shadow-[0_0_25px_rgba(34,211,238,0.3)]', CLIP_SM)}
+            >
+              {notice}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="relative mx-auto max-w-6xl">
         {/* ─────────── هدر HUD ─────────── */}
         <div className="mb-8 text-center">
@@ -161,22 +206,6 @@ export default function Friends() {
           </h1>
           <p className="mt-3 text-sm text-slate-500">دوست پیدا کن، درخواست‌ها را بپذیر و خصوصی چت کن.</p>
         </div>
-
-        {/* Toast زاویه‌دار */}
-        <AnimatePresence>
-          {notice && (
-            <div className="pointer-events-none fixed left-0 right-0 top-24 z-[70] flex justify-center">
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className={cn('border border-cyan-400/30 bg-slate-950/95 px-5 py-2.5 text-sm text-white shadow-[0_0_25px_rgba(34,211,238,0.3)]', CLIP_SM)}
-              >
-                {notice}
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
 
         {/* ─────────── پنل Find Players ─────────── */}
         <div className={cn('relative mb-8 border border-cyan-400/25 bg-[#070b18]/85 p-6 backdrop-blur-xl', CLIP)}>
@@ -211,7 +240,7 @@ export default function Friends() {
           ) : (
             <div className="chat-scroll max-h-72 space-y-2 overflow-y-auto pl-2">
               {findList.map((u) => {
-                            const isOnline = isOnlineNow(u);
+                const isOnline = isOnlineNow(u);
                 return (
                   <motion.div
                     key={u.id}
@@ -241,7 +270,7 @@ export default function Friends() {
           )}
         </div>
 
-        {/* ─────────── تب‌ها — زاویه‌دار ─────────── */}
+        {/* ─────────── تب‌ها ─────────── */}
         <div className="mb-8 flex flex-wrap gap-2">
           {tabs.map((tab) => (
             <button
@@ -280,7 +309,8 @@ export default function Friends() {
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {friends.map((f) => {
                     const fp = f.user_id === user?.id ? f.friend_profile : f.profile;
-                                    const isOnline = isOnlineNow(fp);
+                    const isOnline = isOnlineNow(fp);
+                    const notifyOn = notifyIds.has(fp?.id);
                     return (
                       <motion.div
                         key={f.id}
@@ -301,6 +331,20 @@ export default function Friends() {
                             <p className="truncate font-display font-semibold text-white">{fp?.username || 'Unknown'}</p>
                             <p className="text-xs text-slate-500">{isOnline ? 'Online' : 'Offline'}</p>
                           </div>
+                          {/* 🔔 سوئیچ اعلان پیام */}
+                          <button
+                            onClick={() => toggleNotify(fp?.id, fp?.username)}
+                            title={notifyOn ? 'خاموش کردن اعلان پیام' : 'روشن کردن اعلان پیام'}
+                            className={cn(
+                              'grid h-9 w-9 shrink-0 place-items-center border transition-all',
+                              CLIP_SM,
+                              notifyOn
+                                ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.4)]'
+                                : 'border-white/10 bg-white/5 text-slate-600 hover:text-slate-300'
+                            )}
+                          >
+                            {notifyOn ? <Bell size={15} /> : <BellOff size={15} />}
+                          </button>
                         </div>
                         <div className="mt-4 flex gap-2">
                           <NeonButton size="sm" variant="ghost" className="flex-1" onClick={() => setSelectedFriend({ id: fp?.id, username: fp?.username, avatar_url: fp?.avatar_url })}>
@@ -407,7 +451,7 @@ export default function Friends() {
           )}
         </AnimatePresence>
 
-        {/* ─────────── مودال گزارش — زاویه‌دار ─────────── */}
+        {/* ─────────── مودال گزارش ─────────── */}
         <AnimatePresence>
           {showReportModal && (
             <motion.div

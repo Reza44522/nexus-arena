@@ -1,31 +1,41 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 const URL = import.meta.env.VITE_SUPABASE_URL;
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-/* ─────────── PresenceHeartbeat ───────────
-   هر ۳۰ ثانیه last_seen را تازه می‌کند (status=active)
-   و هنگام بستن/مخفی‌شدن تب، کاربر را آفلاین می‌کند
-─────────────────────────────────────────── */
+/* ─────────── PresenceHeartbeat — نسخه‌ی ضد‌گلوله ───────────
+   هر ۳۰ ثانیه: اول از دیتابیس می‌پرسد «بن هستم؟»
+   - بن/بلاک → فقط last_seen (status دست‌نخورده می‌ماند)
+   - عادی → status='active' + last_seen
+   ✅ هرگز بن را باطل نمی‌کند
+─────────────────────────────────────────────────────────── */
 export default function PresenceHeartbeat() {
   const { user } = useAuth();
+  const restrictedRef = useRef(false);
 
   useEffect(() => {
     if (!user?.id) return;
 
-    /* من آنلاین هستم */
-    const beat = () => {
-      supabase
-        .from('profiles')
-        .update({ status: 'active', last_seen: new Date().toISOString() })
-        .eq('id', user.id)
-        .then(() => {});
+    const beat = async () => {
+      try {
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('status')
+          .eq('id', user.id)
+          .single();
+        const restricted = !!p && (p.status === 'banned' || p.status === 'blocked');
+        restrictedRef.current = restricted;
+        const payload = restricted
+          ? { last_seen: new Date().toISOString() }
+          : { status: 'active', last_seen: new Date().toISOString() };
+        await supabase.from('profiles').update(payload).eq('id', user.id);
+      } catch {}
     };
 
-    /* هنگام بستن تب — با keepalive تا حتماً برسد */
     const goOffline = () => {
+      if (restrictedRef.current) return; // status بن را عوض نکن
       fetch(`${URL}/rest/v1/profiles?id=eq.${user.id}`, {
         method: 'PATCH',
         keepalive: true,

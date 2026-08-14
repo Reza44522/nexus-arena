@@ -16,7 +16,15 @@ export default function PrivateChatModal({ friend, onClose, onReport }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
-  const listRef = useRef(null);
+    const listRef = useRef(null);
+
+  // 🌐 اعلام اینکه الان داخل چت با این دوست هستیم (تا پاپ‌آپ وسط صفحه نیاید)
+  useEffect(() => {
+    window.__NEXUS_PRIVATE_CHAT_WITH__ = friend?.id || null;
+    return () => {
+      window.__NEXUS_PRIVATE_CHAT_WITH__ = null;
+    };
+  }, [friend?.id]);
 
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;

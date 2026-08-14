@@ -7,6 +7,7 @@ import { supabase } from './lib/supabase';
 import WarningAlert from './components/WarningAlert';
 import NotificationPopup from './components/NotificationPopup';
 import PresenceHeartbeat from './components/PresenceHeartbeat';
+import FriendMessagePopup from './components/FriendMessagePopup';
 import SiteLockdown from './components/SiteLockdown';
 import SiteLockControl from './components/admin/SiteLockControl';
 import Profile from './pages/Profile';
@@ -155,13 +156,12 @@ function BanChecker() {
   }, [user?.id]);
 
   // ردیف زنده اولویت دارد؛ اگر نبود، پروفایل AuthContext (برای بازدید بعدی)
-  const p = live || profile;
-
+    const p = live || profile;
   const isBanned = p?.status === 'banned';
-  const isBlockedPerm = p?.status === 'blocked' && !p?.restrict_until;
-
-  // ✅ قفل دائمی کامل = «بن دائم» یا «مسدود کامل دائمی» → فقط این‌ها آژیر دارند
-  const isPermLock = (isBanned && !p?.restrict_until) || isBlockedPerm;
+  // ✅ «blocked» = فقط مسدودیت چت استریم — هرگز قفل کامل سایت
+  const isBlockedPerm = false;
+  // ✅ فقط «بن» کل سایت را قفل می‌کند + آژیر دارد
+  const isPermLock = isBanned && !p?.restrict_until;
 
   const until = p?.restrict_until ? new Date(p.restrict_until).getTime() : null;
   const isTemp = isBanned && until && until > now;
@@ -217,8 +217,8 @@ function BanChecker() {
     play();
   }, [isPermLock]);
 
-  if (!user || !p) return null;
-  if (!isBanned && !isBlockedPerm) return null;
+    if (!user || !p) return null;
+  if (!isBanned) return null; // ✅ blocked = فقط چت، بدون قفل سایت
   if (isExpired) return null;
 
   const remain = isTemp ? until - now : 0;
@@ -317,7 +317,8 @@ export default function App() {
       <DeletedAccountGuard />
       <WarningAlert />
             <NotificationPopup />
-      <PresenceHeartbeat />
+            <PresenceHeartbeat />
+      <FriendMessagePopup />
 
       {/* 🎨 انیمیشن‌های پس‌زمینه */}
       <BackgroundFX />
