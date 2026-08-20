@@ -43,11 +43,17 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        await loadProfile(session.user.id);
+        const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUser(session.user);
+          setLoading(false);             // ✅ سایت فوراً باز شود
+          loadProfile(session.user.id);  // پروفایل در پس‌زمینه
+          return;
+        }
+      } catch (e) {
+        console.error('❌ initAuth (شبکه در دسترس نیست):', e);
       }
       setLoading(false);
     };
