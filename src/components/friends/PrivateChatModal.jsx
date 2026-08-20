@@ -90,7 +90,14 @@ export default function PrivateChatModal({ friend, onClose, onReport }) {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('nx-start-call', { detail: { friendId: friend?.id, friendName: friend?.username } }))}
+              className="grid h-9 w-9 place-items-center border border-emerald-400/30 bg-emerald-400/10 text-sm transition hover:bg-emerald-400/20"
+              title="تماس صوتی"
+            >
+              📞
+            </button>
             {onReport && (
               <button
                 onClick={onReport}

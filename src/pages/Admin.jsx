@@ -11,6 +11,7 @@ import TicketsTab from '../components/admin/TicketsTab';
 import StreamControlTab from '../components/admin/StreamControlTab';
 import TournamentsTab from '../components/admin/TournamentsTab';
 import NewsModerationTab from '../components/admin/NewsModerationTab';
+import GroupsTab from '../components/admin/GroupsTab';
 import SiteLockControl from '../components/admin/SiteLockControl';
 import { cn } from '../utils/cn';
 
@@ -148,7 +149,8 @@ export default function Admin() {
     { id: 'notify', label: '📢 اعلانات' },
         { id: 'lock', label: '🔒 قفل سایت' },
         { id: 'tournaments', label: '🏟 تورنومنت‌ها' },
-    { id: 'news', label: '📰 اخبار' },
+        { id: 'news', label: '📰 اخبار' },
+    { id: 'groups', label: '👥 گروه‌ها' },
   ];
 
   return (
@@ -297,7 +299,10 @@ export default function Admin() {
                 {activeTab === 'tournaments' && <TournamentsTab />}
 
         {/* اخبار */}
-        {activeTab === 'news' && <NewsModerationTab />}
+                {activeTab === 'news' && <NewsModerationTab />}
+
+        {/* گروه‌ها */}
+        {activeTab === 'groups' && <GroupsTab />}
 
         {/* اعلانات */}
         {activeTab === 'notify' && (
