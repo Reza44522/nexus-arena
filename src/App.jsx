@@ -7,6 +7,7 @@ import { supabase } from './lib/supabase';
 import WarningAlert from './components/WarningAlert';
 import NotificationPopup from './components/NotificationPopup';
 import PresenceHeartbeat from './components/PresenceHeartbeat';
+import VoiceRoom from './components/calls/VoiceRoom';
 import PrivateCallOverlay from './components/calls/PrivateCallOverlay';
 import FriendMessagePopup from './components/FriendMessagePopup';
 import SiteLockdown from './components/SiteLockdown';
@@ -318,7 +319,8 @@ export default function App() {
       <DeletedAccountGuard />
       <WarningAlert />
             <NotificationPopup />
-                  <PresenceHeartbeat />
+                        <PresenceHeartbeat />
+      <VoiceRoom />
       <PrivateCallOverlay />
       <FriendMessagePopup />
 

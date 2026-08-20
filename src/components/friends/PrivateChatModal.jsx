@@ -98,12 +98,19 @@ export default function PrivateChatModal({ friend, onClose, onReport }) {
             >
               📞
             </button>
-            <button
+                        <button
               onClick={() => window.dispatchEvent(new CustomEvent('nx-start-call', { detail: { friendId: friend?.id, friendName: friend?.username, video: true } }))}
               className="grid h-9 w-9 place-items-center border border-cyan-400/30 bg-cyan-400/10 text-sm transition hover:bg-cyan-400/20"
               title="تماس تصویری"
             >
               🎥
+            </button>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('nx-voice-room', { detail: { room: 'NexusArena-PM-' + [user?.id, friend?.id].sort().join('-'), title: 'تماس با ' + (friend?.username || '') } }))}
+              className="grid h-9 w-9 place-items-center border border-emerald-400/30 bg-emerald-400/10 text-sm transition hover:bg-emerald-400/20"
+              title="اتاق صدا (پایدار روی موبایل)"
+            >
+              🎧
             </button>
             {onReport && (
               <button

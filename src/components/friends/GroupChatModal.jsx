@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { useGroups } from '../../hooks/useGroups';
 import { cn } from '../../utils/cn';
+import { useGroups } from '../../hooks/useGroups';
 
 const CLIP = '[clip-path:polygon(0_0,calc(100%-22px)_0,100%_22px,100%_100%,22px_100%,0_calc(100%-22px))]';
 const CLIP_SM = '[clip-path:polygon(0_0,calc(100%-12px)_0,100%_12px,100%_100%,12px_100%,0_calc(100%-12px))]';
@@ -265,6 +265,13 @@ export default function GroupChatModal({ group, onClose }) {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+                        <button
+              onClick={() => window.dispatchEvent(new CustomEvent('nx-voice-room', { detail: { room: 'NexusArena-GRP-' + group.id, title: 'گفتگوی صوتی ' + group.name } }))}
+              className={cn(iconBtn, 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20')}
+              title="گفتگوی صوتی گروهی"
+            >
+              🎙
+            </button>
             <button onClick={() => setShowMembers((v) => !v)} className={cn(iconBtn, showMembers && 'border-cyan-400/50 text-cyan-300')} title="اعضا">
               <Users size={15} />
             </button>
