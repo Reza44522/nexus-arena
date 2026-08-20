@@ -8,7 +8,9 @@ import { cn } from '../../utils/cn';
 const CLIP = '[clip-path:polygon(0_0,calc(100%-22px)_0,100%_22px,100%_100%,22px_100%,0_calc(100%-22px))]';
 const CLIP_SM = '[clip-path:polygon(0_0,calc(100%-12px)_0,100%_12px,100%_100%,12px_100%,0_calc(100%-12px))]';
 
-/* ✅ STUN + TURN (برای عبور از NAT سخت موبایل/اینترنت‌های متفاوت) */
+/* ─────────── STUN + TURN ───────────
+   TURN = رله واسط برای عبور از NAT سخت موبایل (CGNAT)
+──────────────────────────────────── */
 const RTC_CONFIG = {
   iceServers: [
     { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
@@ -21,6 +23,7 @@ const RTC_CONFIG = {
       username: 'openrelayproject',
       credential: 'openrelayproject',
     },
+    { urls: 'stun:stun.cloudflare.com:3478' },
   ],
   iceCandidatePoolSize: 2,
 };
@@ -58,13 +61,14 @@ export default function PrivateCallOverlay() {
 
   const flash = (m) => { setNotice(m); setTimeout(() => setNotice(''), 3000); };
 
+  /* تایمر مکالمه */
   useEffect(() => {
     if (call?.status !== 'active') return;
     const t = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(t);
   }, [call?.status]);
 
-  /* ویژوالایزر */
+  /* ویژوالایزر صدای محلی */
   useEffect(() => {
     if (call?.status !== 'active') { setBars(Array(16).fill(10)); return; }
     const iv = setInterval(() => {
@@ -77,6 +81,7 @@ export default function PrivateCallOverlay() {
     return () => clearInterval(iv);
   }, [call?.status]);
 
+  /* ارسال یک‌باره به کانال کاربر دیگر */
   const ping = (topic, payload) => {
     try {
       const dup = supabase.getChannels().find((c) => c.topic === 'realtime:' + topic);
@@ -115,7 +120,10 @@ export default function PrivateCallOverlay() {
     try { pcRef.current?.close(); } catch {}
     try { sessionRef.current && supabase.removeChannel(sessionRef.current); } catch {}
     try { audioCtxRef.current?.close(); } catch {}
-    localRef.current = null; pcRef.current = null; sessionRef.current = null; analyserRef.current = null;
+    localRef.current = null;
+    pcRef.current = null;
+    sessionRef.current = null;
+    analyserRef.current = null;
     setMuted(false); setCamOff(false); setSeconds(0); setMinimized(false); setCall(null); setQuality('عالی');
   };
 
@@ -148,10 +156,12 @@ export default function PrivateCallOverlay() {
     localRef.current = stream;
     if (localVideoRef.current) localVideoRef.current.srcObject = stream;
     startVisualizer(stream);
+
     const pc = new RTCPeerConnection(RTC_CONFIG);
     pc.__candQueue = [];
     pcRef.current = pc;
     stream.getTracks().forEach((tr) => pc.addTrack(tr, stream));
+
     pc.ontrack = (e) => {
       if (e.streams[0]) {
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = e.streams[0];
@@ -165,6 +175,10 @@ export default function PrivateCallOverlay() {
       const s = pc.iceConnectionState;
       console.log('🧊 ICE:', s);
       setQuality(s === 'connected' || s === 'completed' ? 'عالی' : s === 'checking' ? 'متوسط' : 'ضعیف');
+      if (s === 'failed') {
+        console.warn('🧊 ICE failed — restarting...');
+        try { pc.restartIce(); } catch {}
+      }
     };
     pc.onconnectionstatechange = () => console.log('🔗 PC:', pc.connectionState);
     pc.onicecandidate = (e) => {
@@ -196,8 +210,11 @@ export default function PrivateCallOverlay() {
         }
         if (payload.type === 'ice' && pcRef.current) {
           const pc = pcRef.current;
-          if (pc.remoteDescription) { try { await pc.addIceCandidate(payload.candidate); } catch {} }
-          else pc.__candQueue.push(payload.candidate); // ✅ در صف بمان
+          if (pc.remoteDescription) {
+            try { await pc.addIceCandidate(payload.candidate); } catch {}
+          } else {
+            pc.__candQueue.push(payload.candidate); // ✅ در صف بمان
+          }
         }
         if (payload.type === 'react') burst(payload.emoji);
         if (payload.type === 'end') cleanup();
@@ -238,7 +255,7 @@ export default function PrivateCallOverlay() {
     // eslint-disable-next-line
   }, [user?.id]);
 
-  /* 📤 شروع تماس */
+  /* 📤 شروع تماس از دکمه چت */
   useEffect(() => {
     const onStart = (e) => {
       const { friendId, friendName, video } = e.detail || {};
@@ -248,7 +265,11 @@ export default function PrivateCallOverlay() {
       ping('nx-call-' + friendId, { type: 'invite', callId, from: user.id, fromName: profile?.username || 'کاربر', video: !!video });
       setTimeout(() => {
         setCall((cur) => {
-          if (cur && cur.callId === callId && cur.status === 'outgoing') { flash('❌ پاسخی دریافت نشد'); cleanup(); return null; }
+          if (cur && cur.callId === callId && cur.status === 'outgoing') {
+            flash('❌ پاسخی دریافت نشد');
+            cleanup();
+            return null;
+          }
           return cur;
         });
       }, 30000);
@@ -306,10 +327,7 @@ export default function PrivateCallOverlay() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[16000] grid place-items-center bg-black/75 backdrop-blur-[5px] px-4"
           >
-            <style>{`
-              @keyframes pcoBlink { 0%,100% { opacity: 1; } 50% { opacity: .2; } }
-              @keyframes pcoSpin { to { transform: rotate(360deg); } }
-            `}</style>
+            <style>{`@keyframes pcoBlink { 0%,100% { opacity: 1; } 50% { opacity: .2; } } @keyframes pcoSpin { to { transform: rotate(360deg); } }`}</style>
 
             <div className="relative w-full max-w-md overflow-hidden p-[1.5px]">
               {call.status === 'active' && (
@@ -326,6 +344,7 @@ export default function PrivateCallOverlay() {
                 <span className="pointer-events-none absolute left-2 top-2 h-4 w-4 border-l-2 border-t-2 border-emerald-400/60" />
                 <span className="pointer-events-none absolute bottom-2 right-2 h-4 w-4 border-b-2 border-r-2 border-cyan-400/60" />
 
+                {/* ایموجی‌های پروازکننده */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
                   <AnimatePresence>
                     {reactions.map((r) => (
@@ -345,6 +364,7 @@ export default function PrivateCallOverlay() {
 
                 {notice && <p className="mb-3 text-xs font-bold text-red-400">{notice}</p>}
 
+                {/* ویدیوی طرف مقابل یا آواتار */}
                 {call.video && call.status === 'active' ? (
                   <div className={cn('relative mx-auto h-56 w-full overflow-hidden border border-emerald-400/30 bg-black/60', CLIP_SM)}>
                     <RemoteVideoView remoteVideoRef={remoteVideoRef} peerName={call.peerName} />
@@ -388,6 +408,7 @@ export default function PrivateCallOverlay() {
                   )}
                 </p>
 
+                {/* ویژوالایزر */}
                 {call.status === 'active' && (
                   <div className="mx-auto mt-3 flex h-8 max-w-[220px] items-end justify-center gap-[3px]">
                     {bars.map((h, i) => (
@@ -402,6 +423,7 @@ export default function PrivateCallOverlay() {
                   </div>
                 )}
 
+                {/* کنترل‌ها */}
                 <div className="mt-5 flex items-center justify-center gap-2.5">
                   {call.status === 'incoming' ? (
                     <>
@@ -448,7 +470,7 @@ export default function PrivateCallOverlay() {
         )}
       </AnimatePresence>
 
-      {/* Mini Pill */}
+      {/* ─────────── حالت کوچک‌شده (Mini Pill) ─────────── */}
       <AnimatePresence>
         {call && call.status === 'active' && minimized && (
           <motion.div
@@ -479,6 +501,7 @@ export default function PrivateCallOverlay() {
   );
 }
 
+/* ویدیوی طرف مقابل */
 function RemoteVideoView({ remoteVideoRef, peerName }) {
   const holderRef = useRef(null);
   useEffect(() => {
@@ -491,6 +514,7 @@ function RemoteVideoView({ remoteVideoRef, peerName }) {
   return <div ref={holderRef} className="h-full w-full" title={peerName} />;
 }
 
+/* ویدیوی خودت (آینه‌ای) */
 function LocalVideoView({ localVideoRef }) {
   const holderRef = useRef(null);
   useEffect(() => {
