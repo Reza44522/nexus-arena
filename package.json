@@ -12,11 +12,13 @@
     "@supabase/supabase-js": "^2.112.1",
     "framer-motion": "^11.11.0",
     "gsap": "^3.12.5",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.30.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-globe.gl": "^2.38.0",
-    "react-router-dom": "^6.26.0"
+    "react-router-dom": "^6.26.0",
+    "topojson-client": "^3.1.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

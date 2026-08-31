@@ -13,6 +13,9 @@ export function getActiveRestriction(profile) {
   return null;
 }
 
+/* ✅ تایم‌اوت — هرگز روی اسپلش گیر نکن */
+const withTimeout = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(r, ms))]);
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -43,9 +46,9 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-        const initAuth = async () => {
+    const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await withTimeout(supabase.auth.getSession(), 8000);
         if (session?.user) {
           setUser(session.user);
           setLoading(false);             // ✅ سایت فوراً باز شود
@@ -53,7 +56,7 @@ export function AuthProvider({ children }) {
           return;
         }
       } catch (e) {
-        console.error('❌ initAuth (شبکه در دسترس نیست):', e);
+        console.error('❌ initAuth — سوپابیس در دسترس نیست:', e);
       }
       setLoading(false);
     };
@@ -70,8 +73,7 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  /* ✅ NEW — Realtime زنده‌ی پروفایل:
-     بن/آنبلاک/ارتقا/آزادسازی همان لحظه روی کلاینت اعمال شود */
+  /* ✅ پروفایل زنده: بن/آنبلاک/تغییرات همان لحظه اعمال شود */
   useEffect(() => {
     if (!user?.id) return;
     const ch = supabase
@@ -82,7 +84,6 @@ export function AuthProvider({ children }) {
         async (payload) => {
           const p = payload.new;
           if (!p) return;
-          // اگر زمان بن منقضی شده، همان لحظه آزاد کن
           if (p.status !== 'active' && p.restrict_until && new Date(p.restrict_until) < new Date()) {
             const { data: updated } = await supabase
               .from('profiles')
