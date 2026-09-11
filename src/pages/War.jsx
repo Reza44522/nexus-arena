@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Swords, Crosshair, Shield, Trophy, Banknote, Flame, Radar, X, ScrollText, Snowflake, Eye, BookOpen, Activity, Globe, Search, Terminal, Medal, FlaskConical } from 'lucide-react';
+import { Swords, Crosshair, Shield, Trophy, Banknote, Flame, Radar, X, ScrollText, Snowflake, Eye, BookOpen, Activity, Globe, Search, Terminal, Medal, FlaskConical, Zap } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { analyzeWar } from '../lib/warAI';
@@ -20,12 +20,11 @@ const SANCTIONS = [
   { key: 'financial', icon: '🏦', title: 'محاصره مالی', cost: 120, def: 'مالیات هدف −۵۰٪', att: 'مالیات خودت −۱٪ (۲۴س)' },
   { key: 'naval', icon: '🚢', title: 'محاصره دریایی', cost: 180, def: 'استخراج هدف −۳۰٪', att: 'استخراج خودت −۱۰٪ (۲۴س)' },
   { key: 'arms', icon: '🎖', title: 'تحریم تسلیحاتی', cost: 200, def: 'هزینه تجهیزات هدف +۵۰٪', att: 'هزینه خودت +۱۰٪ (۲۴س)' },
-  { key: 'cyber', icon: '️', title: 'جنگ سایبری', cost: 100, def: 'سرقت ۵٪ منبع تصادفی', att: '۲۵٪ احتمال نتیجه معکوس' },
+  { key: 'cyber', icon: '🕹', title: 'جنگ سایبری', cost: 100, def: 'سرقت ۵٪ منبع تصادفی', att: '۲۵٪ احتمال نتیجه معکوس' },
 ];
-
 const SAN_LABEL = { sell_mult: 'فروش بازار', buy_mult: 'خرید بازار', tax_mult: 'مالیات روزانه', collect_mult: 'استخراج شرکت‌ها', buy_cost_mult: 'خرید تجهیزات' };
 
-/* ───────────  درجه‌های نظامی واقعی — مدل ایران (ارتش ج.ا.ا) ─────────── */
+/* ─────────── 🎖 درجه‌های نظامی — مدل ایران ─────────── */
 const IR_RANKS = [
   { w: 0, t: 'سرباز دوم', s: {} },
   { w: 1, t: 'سرباز اول', s: { chevrons: 1 } },
@@ -47,8 +46,7 @@ const IR_RANKS = [
   { w: 50, t: 'سپهبد', s: { stars: 4, wreath: true } },
   { w: 55, t: 'ارتشبد', s: { stars: 5, wreath: true } },
 ];
-
-/* ─────────── 🎖 درجه‌های نظامی واقعی — مدل بین‌المللی (US Army) ─────────── */
+/* ─────────── 🎖 درجه‌های نظامی — مدل بین‌المللی ─────────── */
 const INTL_RANKS = [
   { w: 0, t: 'Private', s: {} },
   { w: 1, t: 'Private First Class', s: { chevrons: 1 } },
@@ -68,11 +66,9 @@ const INTL_RANKS = [
   { w: 45, t: 'Lieutenant General', s: { stars: 3 } },
   { w: 50, t: 'General', s: { stars: 4 } },
 ];
-
 const rankOf = (list, w) => { let r = list[0]; list.forEach((x) => { if (w >= x.w) r = x; }); return r; };
 const nextRank = (list, w) => list.find((x) => w < x.w) || null;
 
-/* ستاره پنج‌پر واقعی */
 function starPts(cx, cy, r) {
   const p = [];
   for (let i = 0; i < 10; i++) {
@@ -83,7 +79,6 @@ function starPts(cx, cy, r) {
   return p.join(' ');
 }
 
-/* 🎖 رندر درجه نظامی واقعی با SVG (گلیم/ستاره/نوار/برگ/عقاب/حلقه گل) */
 function RankInsignia({ s = {}, size = 96 }) {
   const gold = '#fbbf24';
   const silver = '#cbd5e1';
@@ -109,9 +104,8 @@ function RankInsignia({ s = {}, size = 96 }) {
   );
 }
 
-/*  موتور محلی شبیه‌ساز (کپی منطق SQL) */
+/* ─────────── موتور محلی شبیه‌ساز ─────────── */
 const TERMS = ['حمله', 'دفاع', 'پدافند', 'هوایی', 'زرهی', 'موشک', 'پهپاد', 'الکترونیک', 'لجستیک', 'اطلاعات', 'جاسوسی', 'چریک', 'کمین', 'محاصره', 'بمباران', 'ضدحمله', 'سنگر', 'عقب‌نشینی', 'تدارکات', 'غافلگیری', 'خط مقدم', 'توپخانه', 'زیردریایی', 'شب', 'روحیه', 'پشتیبانی', 'ضد هوایی', 'جنگ الکترونیک', 'عملیات ویژه', 'بازشناسی'];
-
 function scoreScenarioJS(t) {
   if (!t || !t.trim()) return 0;
   let s = Math.min(20, Math.floor(t.length / 60));
@@ -125,21 +119,19 @@ function scoreScenarioJS(t) {
   return Math.min(100, s);
 }
 
-/* ─────────── 📰 نوار خبری متحرک ─────────── */
+/* ───────────  نوار خبری متحرک ─────────── */
 function Ticker({ items }) {
   if (!items.length) return null;
   const row = items.join('  ◆  ');
   return (
     <div className="relative mb-6 overflow-hidden border-y border-red-400/20 bg-black/60 py-1.5">
       <style>{`@keyframes warTick { from { transform: translateX(100%); } to { transform: translateX(-100%); } }`}</style>
-      <p className="whitespace-nowrap font-display text-[10px] tracking-widest text-red-300/80" style={{ animation: 'warTick 40s linear infinite' }}>
-        📡 {row}
-      </p>
+      <p className="whitespace-nowrap font-display text-[10px] tracking-widest text-red-300/80" style={{ animation: 'warTick 40s linear infinite' }}>📡 {row}</p>
     </div>
   );
 }
 
-/* ────────── 📡 رادار زنده v2 — بزرگ‌تر + واکنش به جاسوسی ─────────── */
+/* ─────────── 📡 رادار زنده ─────────── */
 function RadarPanel({ active, nameOf, spyAlert }) {
   const alertOn = !!spyAlert;
   return (
@@ -167,7 +159,7 @@ function RadarPanel({ active, nameOf, spyAlert }) {
         <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,1)]" />
       </div>
       {alertOn ? (
-        <p className="mt-2 animate-pulse text-center text-[10px] font-black text-purple-300">️ جاسوس دشمن: {spyAlert.name} در حال اسکن کشور توست!</p>
+        <p className="mt-2 animate-pulse text-center text-[10px] font-black text-purple-300">🕵️ جاسوس دشمن: {spyAlert.name} در حال اسکن کشور توست!</p>
       ) : (
         <p className="mt-2 text-center text-[9px] text-slate-500">{toFa(active.length)} نبرد فعال در جهان</p>
       )}
@@ -175,7 +167,7 @@ function RadarPanel({ active, nameOf, spyAlert }) {
   );
 }
 
-/* ─────────── 🖥 کنسول رویدادها ────────── */
+/* ─────────── 🖥 کنسول رویدادها ─────────── */
 function BattleConsole({ lines }) {
   const ref = useRef(null);
   useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [lines]);
@@ -190,10 +182,10 @@ function BattleConsole({ lines }) {
   );
 }
 
-/* ─────────── ⚔️ War v4 — MEGA ULTRA ─────────── */
+/* ─────────── ⚔️ War v5 — MEGA ULTRA + BLITZ ─────────── */
 export default function War() {
   const { user } = useAuth();
-    const navigate = useNavigate();
+  const navigate = useNavigate();
   const [country, setCountry] = useState(null);
   const [wd, setWd] = useState(0);
   const [targets, setTargets] = useState([]);
@@ -225,6 +217,7 @@ export default function War() {
   const [simRes, setSimRes] = useState(null);
   const [log, setLog] = useState([]);
   const [spyAlert, setSpyAlert] = useState(null);
+  const [blitzPoll, setBlitzPoll] = useState(false);
 
   const flash = (m) => { setNotice(m); setTimeout(() => setNotice(''), 4000); };
   const pushLog = (m) => setLog((L) => [...L.slice(-40), { t: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }), m }]);
@@ -276,25 +269,126 @@ export default function War() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sanctions' }, () => { pushLog('🥶 یک تحریم جدید در جهان ثبت شد'); load(); })
       .subscribe();
-    return () => supabase.removeChannel(ch);
+    return () => { clearInterval(t); supabase.removeChannel(ch); };
+    // eslint-disable-next-line
   }, [user?.id]);
 
   /* 🕵️ واکنش رادار به جاسوسی از کشور من */
   useEffect(() => {
-    if (!country?.id) return;
+    if (!country?.id) return undefined;
     const ch = supabase
       .channel('spy-radar-' + country.id)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'spy_ops', filter: `target_country=eq.${country.id}` }, async (p) => {
         const { data } = await supabase.from('player_countries').select('name_fa, flag').eq('id', p.new?.spy_country).maybeSingle();
-        const nm = (data?.flag || '️') + ' ' + (data?.name_fa || 'دشمن ناشناس');
+        const nm = (data?.flag || '🕵️') + ' ' + (data?.name_fa || 'دشمن ناشناس');
         setSpyAlert({ name: nm });
         pushLog('🚨 شناسایی راداری دشمن: ' + nm);
-        flash('️ هشدار: ' + nm + ' در حال جاسوسی از کشور توست!');
+        flash('🕵️ هشدار: ' + nm + ' در حال جاسوسی از کشور توست!');
         setTimeout(() => setSpyAlert(null), 10000);
       })
       .subscribe();
     return () => supabase.removeChannel(ch);
+    // eslint-disable-next-line
   }, [country?.id]);
+
+  /* ─────────── ⚡ حالت جنگ سریع (BLITZ) ─────────── */
+  const openBlitzPlan = async (matchId) => {
+    const { data: m } = await supabase.from('war_matches').select('*').eq('id', matchId).single();
+    if (!m || !country) return;
+    const side = m.attacker_country === country.id ? 'att' : m.defender_country === country.id ? 'def' : null;
+    if (!side) return;
+    setPlan({ id: m.id, side, mode: 'blitz', deadline: m.scheduled_at });
+  };
+  const joinBlitz = async () => {
+    setBusy('blitz');
+    const { data, error } = await supabase.rpc('war_blitz_queue_join', { p_join: true });
+    setBusy(null);
+    if (error) return flash('❌ ' + error.message);
+    if (data?.ok === false) return flash('❌ ' + data.error);
+    if (data?.match) {
+      setBlitzPoll(false);
+      pushLog('⚡ حریف بلیتز پیدا شد — نبرد ۹۰ ثانیه‌ای آغاز شد!');
+      flash('⚡ حریف پیدا شد! فقط ۹۰ ثانیه مهلت داری!');
+      load();
+      openBlitzPlan(data.match);
+    } else {
+      setBlitzPoll(true);
+      flash('⚡ در صف جنگ سریع — دنبال حریف آنلاین...');
+    }
+  };
+  const leaveBlitz = async () => {
+    setBlitzPoll(false);
+    await supabase.rpc('war_blitz_queue_join', { p_join: false });
+    flash('🚪 از صف جنگ سریع خارج شدی');
+  };
+  useEffect(() => {
+    if (!blitzPoll) return undefined;
+    const t = setInterval(async () => {
+      const { data } = await supabase.rpc('war_blitz_queue_join', { p_join: true });
+      if (data?.match) {
+        setBlitzPoll(false);
+        pushLog('⚡ حریف بلیتز پیدا شد — نبرد ۹۰ ثانیه‌ای آغاز شد!');
+        flash('⚡ حریف پیدا شد! فقط ۹۰ ثانیه مهلت داری!');
+        load();
+      }
+    }, 3000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line
+  }, [blitzPoll]);
+  /* ⚡ حل خودکار نبردهای بلیتز بعد از ۹۰ ثانیه + توزیع غنایم */
+    useEffect(() => {
+    const t = setInterval(async () => {
+      const due = matches.some((m) => m.mode === 'blitz' && m.status !== 'finished' && new Date(m.scheduled_at).getTime() < Date.now());
+      if (!due) return;
+      await supabase.rpc('war_blitz_finish_expired');
+      load();
+    }, 4000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line
+  }, [matches]);
+  /* 🎵 موسیقی جنگ سریع هنگام ثبت سناریو */
+  useEffect(() => {
+    if (!plan || plan.mode !== 'blitz') return undefined;
+    window.dispatchEvent(new CustomEvent('nexus-music-pause'));
+    const audio = new Audio('/audio/musicplaying_war.mp3');
+    audio.loop = true;
+    audio.volume = 0.9;
+    let alive = true;
+    const play = () => {
+      if (!alive) return;
+      audio.play().catch(() => {
+        const un = () => { window.removeEventListener('pointerdown', un); if (alive) audio.play().catch(() => {}); };
+        window.addEventListener('pointerdown', un);
+      });
+    };
+    play();
+    return () => { alive = false; audio.pause(); audio.src = ''; };
+    // eslint-disable-next-line
+  }, [plan?.id, plan?.mode]);
+  /* ⏱ پایان زمان بلیتز: بستن مودال + قطع موسیقی + اعلام نتیجه */
+  useEffect(() => {
+    if (!plan || plan.mode !== 'blitz') return undefined;
+    const t = setInterval(async () => {
+      const { data: m } = await supabase.from('war_matches').select('*').eq('id', plan.id).single();
+      if (!m) { setPlan(null); return; }
+      const expired = new Date(m.scheduled_at).getTime() < Date.now();
+      if (m.status === 'finished') {
+        setPlan(null);
+        setAnalysis(m);
+        flash('🏁 زمان تمام شد — نتیجه نبرد سریع اعلام شد!');
+        load();
+            } else if (expired) {
+        await supabase.rpc('war_blitz_finish_expired');
+        const { data: m2 } = await supabase.from('war_matches').select('*').eq('id', m.id).single();
+        setPlan(null);
+        if (m2) setAnalysis(m2);
+        flash('🏁 زمان تمام شد — نتیجه نبرد سریع اعلام شد!');
+        load();
+      }
+    }, 1000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line
+  }, [plan?.id, plan?.mode]);
 
   const mySide = (m) => (country && m.attacker_country === country.id ? 'att' : country && m.defender_country === country.id ? 'def' : null);
   const nameOf = (id) => {
@@ -302,7 +396,6 @@ export default function War() {
     const t = targets.find((x) => x.id === id);
     return t?.name_fa || '—';
   };
-
   const finishedMine = matches.filter((m) => m.status === 'finished' && mySide(m) && m.winner_country);
   const wins = finishedMine.filter((m) => m.winner_country === country?.id).length;
   const losses = finishedMine.length - wins;
@@ -311,8 +404,6 @@ export default function War() {
   const RLIST = rankModel === 'ir' ? IR_RANKS : INTL_RANKS;
   const rank = rankOf(RLIST, wins);
   const nxt = nextRank(RLIST, wins);
-
-  /* 🏅 تالار افتخار */
   const hall = (() => {
     const c = {};
     matches.filter((m) => m.status === 'finished' && m.winner_country).forEach((m) => { c[m.winner_country] = (c[m.winner_country] || 0) + 1; });
@@ -325,12 +416,11 @@ export default function War() {
     const { data, error } = await supabase.rpc('war_declare_duel', { p_defender: target.id });
     setBusy(null);
     if (error) return flash('❌ ' + error.message);
-    if (data && data.ok === false) return flash(' ' + data.error);
-    pushLog(' اعلام جنگ به ' + target.name_fa + ' — آژیر سراسری فعال شد');
-    flash('🚨 اعلام جنگ! آژیر سراسری پخش شد — نبرد ۵ دقیقه دیگر');
+    if (data && data.ok === false) return flash('❌ ' + data.error);
+    pushLog('⚔️ اعلام جنگ به ' + target.name_fa + ' — آژیر سراسری فعال شد');
+    flash('🚨 اعلام جنگ! آژیر سراسری پخش شد — نبرد به‌زودی');
     load();
   };
-
   const forfeit = async (id) => {
     if (!window.confirm('از این نبرد انصراف می‌دهی؟ حریف برنده می‌شود!')) return;
     setBusy('ff' + id);
@@ -342,22 +432,17 @@ export default function War() {
     flash('🏳️ انصراف ثبت شد — نبرد بسته شد');
     load();
   };
-
   const doSpy = async (t) => {
-  setBusy('spy' + t.id);
-  
-  const { data, error } = await supabase.rpc('war_spy', { p_target: t.id });
-  
-  setBusy(null);
-  if (error) return flash('❌ ' + error.message);
-  if (data && data.ok === false) return flash('❌ ' + data.error);
-  
-  
-  pushLog('️ عملیات جاسوسی روی ' + t.name_fa + ' ' + (data.free ? '(رایگان — قبلاً انجام شده)' : '(−۵۰ WD)') + ' موفق شد');
-  setSpy(t);
-  setSpyData(data.intel);
-  load();
-};
+    setBusy('spy' + t.id);
+    const { data, error } = await supabase.rpc('war_spy', { p_target: t.id });
+    setBusy(null);
+    if (error) return flash('❌ ' + error.message);
+    if (data && data.ok === false) return flash('❌ ' + data.error);
+    pushLog('🕵️ عملیات جاسوسی روی ' + t.name_fa + ' ' + (data.free ? '(رایگان — قبلاً انجام شده)' : '(−۵۰ WD)') + ' موفق شد');
+    setSpy(t);
+    setSpyData(data.intel);
+    load();
+  };
   const applySanction = async (type) => {
     if (!sanTarget) return flash('❌ اول هدف تحریم را انتخاب کن');
     setBusy('san' + type);
@@ -365,21 +450,31 @@ export default function War() {
     setBusy(null);
     if (error) return flash('❌ ' + error.message);
     if (data && data.ok === false) return flash('❌ ' + data.error);
-    pushLog(' تحریم ' + SANCTIONS.find((s) => s.key === type)?.title + ' روی ' + sanTarget.name_fa + ' اعمال شد');
+    pushLog('🥶 تحریم ' + SANCTIONS.find((s) => s.key === type)?.title + ' روی ' + sanTarget.name_fa + ' اعمال شد');
     flash('🥶 تحریم اعمال شد — جنگ سرد آغاز شد');
     load();
   };
 
+  /* 📜 ثبت برنامه نبرد — مودال فوراً بسته می‌شود تا اعلان‌ها دیده شوند */
   const submitPlan = async () => {
-    if (!plan) return;
+        if (!plan) return;
+    if (plan.mode === 'blitz' && plan.deadline && Date.now() > new Date(plan.deadline).getTime()) {
+      setPlan(null);
+      return flash('⏱ زمان نبرد سریع تمام شده — سناریو قابل ثبت نیست');
+    }
     if (attText.trim().length < 30 || defText.trim().length < 30) return flash('❌ هر دو سناریو حداقل ۳۰ کاراکتر باشند');
+    const planId = plan.id;
+    const planSide = plan.side;
+    const planCommit = commit;
     setBusy('plan');
     const combined = 'حمله: ' + attText.trim() + ' || دفاع: ' + defText.trim();
-    const { data, error } = await supabase.rpc('war_submit_plan', { p_match: plan.id, p_side: plan.side, p_commit: commit, p_scenario: combined });
+    const { data, error } = await supabase.rpc('war_submit_plan', { p_match: planId, p_side: planSide, p_commit: planCommit, p_scenario: combined });
     if (error) { setBusy(null); return flash('❌ ' + error.message); }
-    if (data && data.ok === false) { setBusy(null); return flash(' ' + data.error); }
-    pushLog('📜 برنامه نبرد با تعهد ' + commit + '٪ ثبت شد');
-    const { data: m2 } = await supabase.from('war_matches').select('*').eq('id', plan.id).single();
+    if (data && data.ok === false) { setBusy(null); return flash('❌ ' + data.error); }
+    pushLog('📜 برنامه نبرد با تعهد ' + planCommit + '٪ ثبت شد');
+    flash('✅ برنامه ثبت شد');
+    setPlan(null); setAttText(''); setDefText(''); setCommit(50);
+    const { data: m2 } = await supabase.from('war_matches').select('*').eq('id', planId).single();
     if (m2?.att_sub && m2?.def_sub) {
       flash('🤖 هوش مصنوعی در حال تحلیل سناریوهاست...');
       const ai = await analyzeWar({
@@ -388,21 +483,20 @@ export default function War() {
         attCommit: m2.att_commit, defCommit: m2.def_commit,
       });
       const res = ai
-        ? await supabase.rpc('war_resolve_match', { p_id: plan.id, p_ai_sa: ai.sa, p_ai_sd: ai.sd, p_ai_att: ai.att, p_ai_def: ai.def, p_ai_pub: ai.pub })
-        : await supabase.rpc('war_resolve_match', { p_id: plan.id });
+        ? await supabase.rpc('war_resolve_match', { p_id: planId, p_ai_sa: ai.sa, p_ai_sd: ai.sd, p_ai_att: ai.att, p_ai_def: ai.def, p_ai_pub: ai.pub })
+        : await supabase.rpc('war_resolve_match', { p_id: planId });
       if (res.error) flash('❌ خطای حل نبرد: ' + res.error.message);
       else if (res.data && res.data.ok === false) flash('❌ ' + res.data.error);
       else {
-        pushLog(' نبرد حل شد: ' + (ai ? 'تحلیل AI' : 'موتور داخلی'));
+        pushLog('🎯 نبرد حل شد: ' + (ai ? 'تحلیل AI' : 'موتور داخلی'));
         flash(ai ? '🤖 تحلیل AI ثبت شد!' : '⚙️ AI در دسترس نبود — موتور داخلی تحلیل کرد');
-        const { data: m3 } = await supabase.from('war_matches').select('*').eq('id', plan.id).single();
+        const { data: m3 } = await supabase.from('war_matches').select('*').eq('id', planId).single();
         if (m3) setAnalysis(m3);
       }
     } else {
       flash('✅ برنامه ثبت شد — منتظر سناریوی حریف');
     }
     setBusy(null);
-    setPlan(null); setAttText(''); setDefText(''); setCommit(50);
     load();
   };
 
@@ -418,7 +512,7 @@ export default function War() {
     const fa = sa * 0.5 + aa * 0.4 + la * 0.1;
     const fd = sd * 0.5 + ad * 0.4 + ld * 0.1;
     setSimRes({ sa, sd, aa: Math.floor(aa), ad: Math.floor(ad), la: Math.floor(la), ld: Math.floor(ld), fa: Math.floor(fa), fd: Math.floor(fd), win: fa >= fd });
-    pushLog(' شبیه‌سازی نبرد انجام شد');
+    pushLog('🧪 شبیه‌سازی نبرد انجام شد');
   };
 
   const countdown = (ts) => {
@@ -440,6 +534,7 @@ export default function War() {
 
   const TABS = [
     { id: 'duel', label: 'نبرد تن‌به‌تن', icon: Swords },
+    { id: 'blitz', label: '⚡ جنگ سریع', icon: Zap },
     { id: 'tournament', label: 'جام بزرگ جنگ', icon: Trophy },
     { id: 'cold', label: 'جنگ سرد', icon: Snowflake },
     { id: 'history', label: 'بایگانی + فید جهانی', icon: ScrollText },
@@ -447,10 +542,13 @@ export default function War() {
     { id: 'coord', label: 'جنگ مختصاتی', icon: Crosshair },
   ];
 
+  const modeLabel = (m) => (m.mode === 'blitz' ? '⚡ جنگ سریع (BLITZ)' : m.mode === 'duel' ? 'نبرد تن‌به‌تن' : `جام — دور ${toFa(m.round)}`);
+
   return (
     <div className="relative min-h-screen overflow-hidden px-4 pb-16 pt-24">
       <style>{`@keyframes gridFloor { to { background-position: 0 44px; } } @keyframes blinkDot { 0%,100% { opacity: 1; } 50% { opacity: .2; } } @keyframes nxSpin { to { transform: rotate(360deg); } } @keyframes scanY { 0% { top: -10%; } 100% { top: 110%; } } @keyframes crt { 0% { opacity: .12; } 50% { opacity: .2; } 100% { opacity: .12; } } @keyframes aurora { from { transform: translate3d(-40px,0,0) scale(1); } to { transform: translate3d(60px,30px,0) scale(1.15); } } @keyframes typeW { from { width: 0; } to { width: 100%; } } @keyframes glitch { 0%,91%,100% { text-shadow: 0 0 26px rgba(239,68,68,.5); transform: none; } 92% { text-shadow: -3px 0 #fbbf24, 3px 0 #ef4444; transform: translateX(2px); } 94% { text-shadow: 3px 0 #fbbf24, -3px 0 #ef4444; transform: translateX(-2px); } 96% { text-shadow: 0 0 26px rgba(239,68,68,.5); transform: none; } }`}</style>
-      {/* صحنه اسطوره‌ای v5 */}
+
+      {/* صحنه پس‌زمینه */}
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute inset-x-0 bottom-0 h-[42vh]" style={{ maskImage: 'linear-gradient(to top, black 15%, transparent 92%)', WebkitMaskImage: 'linear-gradient(to top, black 15%, transparent 92%)' }}>
           <div className="absolute inset-0 opacity-[0.14]" style={{ backgroundImage: 'linear-gradient(rgba(239,68,68,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(251,191,36,.4) 1px, transparent 1px)', backgroundSize: '44px 44px', transform: 'perspective(700px) rotateX(56deg) scale(1.25)', transformOrigin: 'bottom', animation: 'gridFloor 2.2s linear infinite' }} />
@@ -464,21 +562,24 @@ export default function War() {
         <div className="absolute bottom-20 left-10 h-72 w-72 rounded-full bg-amber-500/10 blur-[110px]" />
         <div className="absolute inset-0" style={{ background: 'repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 3px)', animation: 'crt 4s infinite' }} />
       </div>
+
+      {/* 📢 اعلان — بالای همه‌چیز */}
       <AnimatePresence>
         {notice && (
-          <div className="pointer-events-none fixed left-0 right-0 top-24 z-[70] flex justify-center px-4">
+          <div className="pointer-events-none fixed left-0 right-0 top-24 z-[20000] flex justify-center px-4">
             <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={cn('border border-red-400/40 bg-slate-950/95 px-5 py-2.5 text-sm text-white shadow-[0_0_25px_rgba(239,68,68,0.35)]', CLIP_SM)}>{notice}</motion.div>
           </div>
         )}
       </AnimatePresence>
+
       <div className="relative mx-auto max-w-7xl">
         <div className="mb-4 flex items-center justify-between border-y border-red-400/30 py-2" style={HAZARD}>
-          <p className="flex items-center gap-2 px-3 font-display text-[9px] font-black uppercase tracking-[0.35em] text-red-400"><Radar size={11} /> War Room Ultra v4 // Live Combat Network</p>
+          <p className="flex items-center gap-2 px-3 font-display text-[9px] font-black uppercase tracking-[0.35em] text-red-400"><Radar size={11} /> War Room Ultra v5 // Live Combat Network</p>
           <div className="flex gap-2 px-3">
             <button onClick={() => setSim(true)} className={cn('flex items-center gap-1.5 border border-emerald-400/40 bg-emerald-400/10 px-3 py-1.5 text-[9px] font-black text-emerald-300 transition hover:bg-emerald-400/20', CLIP_SM)}>
               <FlaskConical size={11} /> 🧪 شبیه‌ساز نبرد
             </button>
-                        <button onClick={() => navigate('/worldmap')} className={cn('flex items-center gap-1.5 border border-fuchsia-400/40 bg-fuchsia-400/10 px-3 py-1.5 text-[9px] font-black text-fuchsia-300 transition hover:bg-fuchsia-400/20', CLIP_SM)}>
+            <button onClick={() => navigate('/worldmap')} className={cn('flex items-center gap-1.5 border border-fuchsia-400/40 bg-fuchsia-400/10 px-3 py-1.5 text-[9px] font-black text-fuchsia-300 transition hover:bg-fuchsia-400/20', CLIP_SM)}>
               <Globe size={11} /> 🗺 نقشه جهان
             </button>
             <button onClick={() => setHelp(true)} className={cn('flex items-center gap-1.5 border border-cyan-400/40 bg-cyan-400/10 px-3 py-1.5 text-[9px] font-black text-cyan-300 transition hover:bg-cyan-400/20', CLIP_SM)}>
@@ -486,7 +587,9 @@ export default function War() {
             </button>
           </div>
         </div>
+
         <Ticker items={tickerItems} />
+
         {/* هدر + کارنامه + رتبه */}
         <div className="mb-6 flex flex-wrap items-center gap-6">
           <div className="relative h-24 w-24 shrink-0">
@@ -504,8 +607,8 @@ export default function War() {
             </p>
             <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
               <span className={cn('flex items-center gap-1.5 border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 font-bold text-emerald-300', CLIP_SM)}><Banknote size={11} /> {fmtNum(wd)} WD</span>
-              <span className={cn('flex items-center gap-1.5 border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 font-bold text-emerald-300', CLIP_SM)}> برد: {toFa(wins)}</span>
-              <span className={cn('flex items-center gap-1.5 border border-red-400/40 bg-red-400/10 px-2.5 py-1 font-bold text-red-300', CLIP_SM)}>💀 باخت: {toFa(losses)}</span>
+              <span className={cn('border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 font-bold text-emerald-300', CLIP_SM)}>برد: {toFa(wins)}</span>
+              <span className={cn('border border-red-400/40 bg-red-400/10 px-2.5 py-1 font-bold text-red-300', CLIP_SM)}>💀 باخت: {toFa(losses)}</span>
               <span className={cn('flex items-center gap-1.5 border border-cyan-400/40 bg-cyan-400/10 px-2.5 py-1 font-bold text-cyan-300', CLIP_SM)}><Activity size={11} /> نرخ پیروزی: {toFa(finishedMine.length ? Math.round((wins / finishedMine.length) * 100) : 0)}٪</span>
               {nextTourAt !== null && (
                 <span className={cn('flex items-center gap-1.5 border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 font-bold text-amber-300', CLIP_SM)}>
@@ -514,13 +617,13 @@ export default function War() {
               )}
             </div>
           </div>
-          {/* 🎖 کارت درجه فرماندهی — بزرگ + واقعی + دو مدل */}
+          {/* 🎖 کارت درجه فرماندهی */}
           <div className={cn('w-full border border-amber-400/30 bg-[#0a0c08]/85 p-5 md:w-80', CLIP)}>
             <div className="mb-3 flex items-center justify-between">
               <p className="font-display text-[10px] font-black uppercase tracking-[0.25em] text-amber-300">درجه فرماندهی</p>
               <div className="flex gap-1">
-                <button onClick={() => switchModel('ir')} className={cn('border px-2 py-1 text-[9px] font-black transition', CLIP_SM, rankModel === 'ir' ? 'border-emerald-400/60 bg-emerald-400/15 text-emerald-300' : 'border-white/10 bg-white/5 text-slate-500 hover:text-white')}>🇮🇷 ایرانی</button>
-                <button onClick={() => switchModel('int')} className={cn('border px-2 py-1 text-[9px] font-black transition', CLIP_SM, rankModel === 'int' ? 'border-cyan-400/60 bg-cyan-400/15 text-cyan-300' : 'border-white/10 bg-white/5 text-slate-500 hover:text-white')}> بین‌المللی</button>
+                <button onClick={() => switchModel('ir')} className={cn('border px-2 py-1 text-[9px] font-black transition', CLIP_SM, rankModel === 'ir' ? 'border-emerald-400/60 bg-emerald-400/15 text-emerald-300' : 'border-white/10 bg-white/5 text-slate-500 hover:text-white')}>🇮 ایرانی</button>
+                <button onClick={() => switchModel('int')} className={cn('border px-2 py-1 text-[9px] font-black transition', CLIP_SM, rankModel === 'int' ? 'border-cyan-400/60 bg-cyan-400/15 text-cyan-300' : 'border-white/10 bg-white/5 text-slate-500 hover:text-white')}>🌐 بین‌المللی</button>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -538,6 +641,7 @@ export default function War() {
             </div>
           </div>
         </div>
+
         {/* تحریم‌های روی خودت */}
         {sanActive && (
           <div className={cn('mb-6 border border-red-400/40 bg-red-400/5 p-4', CLIP)}>
@@ -551,6 +655,7 @@ export default function War() {
             </div>
           </div>
         )}
+
         {/* تب‌ها */}
         <div className="mb-8 flex flex-wrap gap-2">
           {TABS.map((t) => (
@@ -559,6 +664,7 @@ export default function War() {
             </button>
           ))}
         </div>
+
         {/* ─────────── تب دوئل ─────────── */}
         {tab === 'duel' && (
           <div className="grid gap-6 lg:grid-cols-4">
@@ -586,23 +692,23 @@ export default function War() {
               <p className="mt-2 text-[9px] leading-4 text-slate-500">⚡ قدرت نظامی • 🕵️ جاسوسی = ذخایر + کابینه + تجهیزات حریف</p>
             </div>
             <div className="space-y-4 lg:col-span-2">
-              {myActive.length === 0 ? (
-                <div className={cn('border border-white/10 bg-[#0a0c08]/85 p-12 text-center text-slate-500', CLIP)}>نبرد فعالی نداری — هدفی انتخاب کن یا منتظر جام بمان! ️</div>
+              {myActive.filter((m) => m.mode !== 'blitz').length === 0 ? (
+                <div className={cn('border border-white/10 bg-[#0a0c08]/85 p-12 text-center text-slate-500', CLIP)}>نبرد فعالی نداری — هدفی انتخاب کن، منتظر جام بمان یا ⚡ جنگ سریع بزن!</div>
               ) : (
-                myActive.map((m) => {
+                                myActive.filter((m) => m.mode !== 'blitz').map((m) => {
                   const side = mySide(m);
                   const submitted = side === 'att' ? m.att_sub : m.def_sub;
                   return (
-                    <motion.div key={m.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className={cn('relative border p-5', CLIP, 'border-red-400/40 bg-red-400/5')}>
+                    <motion.div key={m.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className={cn('relative border p-5', CLIP, m.mode === 'blitz' ? 'border-amber-400/50 bg-amber-400/5' : 'border-red-400/40 bg-red-400/5')}>
                       <span className="pointer-events-none absolute left-2 top-2 h-3 w-3 border-l-2 border-t-2 border-red-400/60" />
                       <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-white">
-                        ⚔️ {m.mode === 'duel' ? 'نبرد تن‌به‌تن' : `جام — دور ${toFa(m.round)}`}
+                        ⚔️ {modeLabel(m)}
                         <span className={cn('border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 font-display text-[10px] tabular-nums text-amber-300', CLIP_SM)}>⏱ {countdown(m.scheduled_at)}</span>
                       </p>
-                      <p className="mt-1 text-[10px] text-slate-500">۱) درصد تعهد ۲) سناریوی حمله و دفاع ۳) قضاوت هوش مصنوعی. (اول با  شبیه‌ساز تست کن!)</p>
+                      <p className="mt-1 text-[10px] text-slate-500">۱) درصد تعهد ۲) سناریوی حمله و دفاع ۳) قضاوت هوش مصنوعی. (اول با شبیه‌ساز تست کن!)</p>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         {!submitted && (
-                          <button onClick={() => setPlan({ id: m.id, side })} className={cn('bg-gradient-to-r from-amber-400 to-red-500 px-5 py-2.5 font-display text-[10px] font-black uppercase tracking-[0.2em] text-slate-950', CLIP_SM)}>
+                          <button onClick={() => setPlan({ id: m.id, side, mode: m.mode, deadline: m.scheduled_at })} className={cn('bg-gradient-to-r from-amber-400 to-red-500 px-5 py-2.5 font-display text-[10px] font-black uppercase tracking-[0.2em] text-slate-950', CLIP_SM)}>
                             📜 ثبت برنامه نبرد
                           </button>
                         )}
@@ -619,12 +725,11 @@ export default function War() {
             </div>
             <div className="space-y-4 lg:col-span-1">
               <RadarPanel active={activeMatches} nameOf={nameOf} spyAlert={spyAlert} />
-              {/* 🏅 تالار افتخار */}
               <div className={cn('border border-amber-400/30 bg-[#0a0c08]/85 p-4', CLIP)}>
                 <p className="mb-2 flex items-center gap-2 font-display text-[9px] uppercase tracking-[0.3em] text-amber-300"><Medal size={11} /> تالار افتخار</p>
                 {hall.length === 0 ? <p className="text-[10px] text-slate-600">هنوز قهرمانی ثبت نشده</p> : hall.map(([id, w], i) => (
                   <p key={id} className="mb-1.5 flex items-center gap-2 text-[10px] font-bold text-white">
-                    <span>{['🥇', '', '🥉'][i]}</span>
+                    <span>{['🥇', '🥈', '🥉'][i]}</span>
                     <span className="flex-1">{nameOf(id)}</span>
                     <span className="text-amber-300">{toFa(w)} برد</span>
                   </p>
@@ -633,6 +738,70 @@ export default function War() {
             </div>
           </div>
         )}
+
+        {/* ─────────── تب جنگ سریع (BLITZ) ─────────── */}
+        {tab === 'blitz' && (
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className={cn('relative border border-amber-400/40 bg-[#0a0c08]/85 p-6 lg:col-span-2', CLIP)} style={HAZARD}>
+              <p className="font-display text-2xl font-black text-amber-300 md:text-4xl" style={{ animation: 'glitch 3s infinite' }}>⚡ حالت جنگ سریع (BLITZ)</p>
+              <p className="mt-2 text-[11px] leading-6 text-slate-300">وصل شدن آنی به فرمانده آنلاین • مهلت ثبت سناریو فقط <b className="text-red-300">۹۰ ثانیه</b> • ضریب سختی ×۲</p>
+              <div className="mt-4 grid gap-3 text-[10px] md:grid-cols-3">
+                <div className={cn('border border-emerald-400/30 bg-emerald-400/5 p-3', CLIP_SM)}>
+                  <p className="font-black text-emerald-300">🏆 پیروزی</p>
+                  <p className="mt-1 text-slate-300">+۴۰۰ WD • +۶۰ XP • غنیمت ۱۵٪ از دو منبع تصادفی دشمن</p>
+                </div>
+                <div className={cn('border border-red-400/30 bg-red-400/5 p-3', CLIP_SM)}>
+                  <p className="font-black text-red-300">💀 شکست</p>
+                  <p className="mt-1 text-slate-300">−۲۵۰ WD غرامت • −۲۵ XP • از دست دادن ۱۵٪ دو منبع</p>
+                </div>
+                <div className={cn('border border-amber-400/30 bg-amber-400/5 p-3', CLIP_SM)}>
+                  <p className="font-black text-amber-300">⏱ قوانین</p>
+                  <p className="mt-1 text-slate-300">۹۰ ثانیه مهلت • ثبت نکردن = شکست خودکار • موسیقی جنگ فعال</p>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {!blitzPoll ? (
+                  <button onClick={joinBlitz} disabled={busy === 'blitz'} className={cn('bg-gradient-to-r from-amber-400 to-red-500 px-8 py-3 font-display text-xs font-black uppercase tracking-[0.25em] text-slate-950 shadow-[0_0_30px_rgba(251,191,36,0.5)] disabled:opacity-40', CLIP_SM)}>
+                    ⚡ ورود به صف جنگ سریع
+                  </button>
+                ) : (
+                  <>
+                    <span className={cn('flex items-center gap-2 border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-[10px] font-black text-amber-300', CLIP_SM)}>
+                      <span className="h-2 w-2 animate-ping rounded-full bg-amber-400" /> در حال جست‌وجوی حریف آنلاین...
+                    </span>
+                    <button onClick={leaveBlitz} className={cn('border border-red-400/40 bg-red-400/10 px-4 py-3 text-[10px] font-black text-red-300', CLIP_SM)}>🚪 خروج از صف</button>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className={cn('border border-white/10 bg-[#0a0c08]/85 p-5', CLIP)}>
+              <p className="mb-3 font-display text-[10px] uppercase tracking-[0.3em] text-amber-300">⚡ نبردهای سریع فعال</p>
+              {matches.filter((m) => m.mode === 'blitz' && m.status !== 'finished').length === 0 ? (
+                <p className="text-[10px] text-slate-600">نبرد سریعی در جریان نیست</p>
+              ) : (
+                matches.filter((m) => m.mode === 'blitz' && m.status !== 'finished').map((m) => {
+                  const side = mySide(m);
+                  const submitted = side === 'att' ? m.att_sub : side === 'def' ? m.def_sub : false;
+                  return (
+                    <div key={m.id} className={cn('mb-2 border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-[10px] font-bold text-amber-200', CLIP_SM)}>
+                      <p>{nameOf(m.attacker_country)} ⚡ {nameOf(m.defender_country)} — ⏱ {countdown(m.scheduled_at)}</p>
+                      {side && !submitted && new Date(m.scheduled_at).getTime() > now && (
+                        <button onClick={() => setPlan({ id: m.id, side, mode: 'blitz', deadline: m.scheduled_at })} className={cn('mt-1.5 w-full bg-gradient-to-r from-amber-400 to-red-500 py-1.5 font-display text-[9px] font-black uppercase tracking-[0.2em] text-slate-950', CLIP_SM)}>
+                          📜 ثبت سناریو (⏱ {countdown(m.scheduled_at)})
+                        </button>
+                      )}
+                      {side && !submitted && new Date(m.scheduled_at).getTime() <= now && (
+                        <p className="mt-1 text-[9px] font-black text-red-400">⏰ زمان این نبرد تمام شده — در حال اعلام نتیجه...</p>
+                      )}
+                      {side && submitted && <p className="mt-1 text-[9px] text-emerald-300">✅ سناریو ثبت شد — منتظر حریف</p>}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ─────────── تب تورنومنت ─────────── */}
         {tab === 'tournament' && (
           <div className="space-y-8">
@@ -668,7 +837,7 @@ export default function War() {
                                     )}
                                   </p>
                                   {m.status !== 'finished' && side && !submitted && (
-                                    <button onClick={() => setPlan({ id: m.id, side })} className={cn('mt-2 bg-gradient-to-r from-amber-400 to-red-500 px-4 py-1.5 text-[9px] font-black uppercase text-slate-950', CLIP_SM)}>📜 ثبت برنامه</button>
+                                    <button onClick={() => setPlan({ id: m.id, side, mode: m.mode, deadline: m.scheduled_at })} className={cn('mt-2 bg-gradient-to-r from-amber-400 to-red-500 px-4 py-1.5 text-[9px] font-black uppercase text-slate-950', CLIP_SM)}>📜 ثبت برنامه</button>
                                   )}
                                   {m.status !== 'finished' && side && submitted && <p className="mt-2 text-[9px] text-emerald-300">✅ برنامه تو ثبت شد</p>}
                                   {m.status === 'finished' && m.winner_country && <p className="mt-1 text-[9px] text-emerald-300">برنده: {nameOf(m.winner_country)}</p>}
@@ -685,6 +854,7 @@ export default function War() {
             )}
           </div>
         )}
+
         {/* ─────────── تب جنگ سرد ─────────── */}
         {tab === 'cold' && (
           <div className="grid gap-6 lg:grid-cols-3">
@@ -720,10 +890,13 @@ export default function War() {
             </div>
           </div>
         )}
+
         {/* ─────────── تب جنگ اتحادها ─────────── */}
         {tab === 'alliance' && <AllianceWarTab flash={flash} pushLog={pushLog} />}
+
         {/* ─────────── تب جنگ مختصاتی ─────────── */}
         {tab === 'coord' && <CoordWarTab flash={flash} pushLog={pushLog} />}
+
         {/* ─────────── تب بایگانی + فید ─────────── */}
         {tab === 'history' && (
           <div className="grid gap-6 lg:grid-cols-2">
@@ -759,7 +932,8 @@ export default function War() {
           </div>
         )}
       </div>
-      {/* ─────────── مودال جاسوسی ────────── */}
+
+      {/* ─────────── مودال جاسوسی ─────────── */}
       <AnimatePresence>
         {spy && spyData && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[16000] grid place-items-center bg-black/80 px-4 backdrop-blur-[4px]" onClick={() => { setSpy(null); setSpyData(null); }}>
@@ -790,6 +964,7 @@ export default function War() {
           </motion.div>
         )}
       </AnimatePresence>
+
       {/* ─────────── مودال شبیه‌ساز ─────────── */}
       <AnimatePresence>
         {sim && (
@@ -807,7 +982,7 @@ export default function War() {
               <textarea value={simD} onChange={(e) => setSimD(e.target.value)} rows={4} placeholder="حدس سناریوی حریف..." className="w-full resize-none rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm leading-6 text-white outline-none focus:border-cyan-400/50" />
               <label className="mb-1 mt-2 block text-[10px] font-bold text-amber-300">تعهد حریف: {toFa(simCD)}٪</label>
               <input type="range" min="10" max="100" step="5" value={simCD} onChange={(e) => setSimCD(Number(e.target.value))} className="w-full accent-cyan-400" />
-              <button onClick={runSim} className={cn('mt-4 w-full bg-gradient-to-r from-emerald-400 to-cyan-500 py-3 font-display text-xs font-black uppercase tracking-[0.25em] text-slate-950', CLIP_SM)}> اجرای شبیه‌سازی</button>
+              <button onClick={runSim} className={cn('mt-4 w-full bg-gradient-to-r from-emerald-400 to-cyan-500 py-3 font-display text-xs font-black uppercase tracking-[0.25em] text-slate-950', CLIP_SM)}>اجرای شبیه‌سازی</button>
               {simRes && (
                 <div className="mt-4 space-y-3">
                   <p className={cn('border p-3 text-center text-sm font-black', CLIP_SM, simRes.win ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300' : 'border-red-400/40 bg-red-400/10 text-red-300')}>
@@ -824,6 +999,7 @@ export default function War() {
           </motion.div>
         )}
       </AnimatePresence>
+
       {/* ─────────── مودال راهنما ─────────── */}
       <AnimatePresence>
         {help && (
@@ -835,16 +1011,18 @@ export default function War() {
               </div>
               <div className="space-y-4 text-[11px] leading-6 text-slate-300">
                 <div><p className="font-black text-red-300">⚔️ نبرد تن‌به‌تن:</p><p>هدف انتخاب کن، اعلام جنگ بزن (آژیر سراسری)، هر دو فرمانده تعهد + سناریو می‌فرستند، AI قضاوت می‌کند. برنده ۱۵۰ WD + غنیمت.</p></div>
+                <div><p className="font-black text-amber-300">⚡ جنگ سریع (BLITZ):</p><p>صف آنی با فرمانده آنلاین • فقط ۹۰ ثانیه مهلت سناریو • پیروزی: +۴۰۰ WD و +۶۰ XP و غنیمت منابع • شکست: −۲۵۰ WD و −۲۵ XP و از دست دادن منابع. ثبت نکردن = شکست خودکار!</p></div>
                 <div><p className="font-black text-purple-300">🕵️ جاسوسی:</p><p>با ۵۰ WD ذخایر، کابینه و تجهیزات حریف را ببین و هوشمندانه‌تر حمله کن (۱۲ ساعت رایگان می‌ماند).</p></div>
                 <div><p className="font-black text-emerald-300">🧪 شبیه‌ساز:</p><p>قبل از ارسال واقعی، سناریویت را تست کن و نمره‌اش را ببین — رایگان و نامحدود!</p></div>
-                <div><p className="font-black text-amber-300">🏆 جام بزرگ:</p><p>براکت رندوم دوربه‌دور تا فینال. 🥇 ۵۰۰ • 🥈 ۱۲۰۰ • 🥉 ۶۰۰ WD.</p></div>
-                <div><p className="font-black text-cyan-300"> جنگ سرد:</p><p>تحریم = آسیب اقتصادی به حریف + هزینه کوچک برای تو. ۲۴ ساعت فعال.</p></div>
-                <div><p className="font-black text-fuchsia-300"> فرمول:</p><p>سناریو ۵۰٪ {'>'} منابع ۴۰٪ {'>'} شانس ۱۰٪. با برد، رتبه فرماندهی‌ات بالا می‌رود تا مارشال میدان! 👑</p></div>
+                <div><p className="font-black text-amber-300">🏆 جام بزرگ:</p><p>براکت رندوم دوربه‌دور تا فینال. 🥇 ۵۰۰ • 🥈 ۲۰۰ • 🥉 ۶۰۰ WD.</p></div>
+                <div><p className="font-black text-cyan-300">🥶 جنگ سرد:</p><p>تحریم = آسیب اقتصادی به حریف + هزینه کوچک برای تو. ۲۴ ساعت فعال.</p></div>
+                <div><p className="font-black text-fuchsia-300">🧮 فرمول:</p><p>سناریو ۵۰٪ {'>'} منابع ۴۰٪ {'>'} شانس ۱۰٪. با برد، رتبه فرماندهی‌ات بالا می‌رود تا مارشال میدان! 👑</p></div>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
       {/* ─────────── مودال برنامه نبرد ─────────── */}
       <AnimatePresence>
         {plan && (
@@ -854,6 +1032,16 @@ export default function War() {
                 <p className="flex items-center gap-2 font-display text-sm font-black text-white"><ScrollText size={15} className="text-red-400" /> برنامه نبرد — تعهد + سناریوها</p>
                 <button onClick={() => setPlan(null)} className="grid h-7 w-7 place-items-center text-slate-500 hover:text-white"><X size={14} /></button>
               </div>
+              {plan.mode === 'blitz' ? (
+                <div className="mb-4 border-2 border-red-500/60 bg-red-500/10 p-3 text-center" style={HAZARD}>
+                  <p className="font-display text-sm font-black text-red-400" style={{ animation: 'blinkDot 0.7s infinite' }}>⚡ حالت BLITZ — فقط {countdown(plan.deadline)} فرصت داری!</p>
+                  <p className="mt-1 text-[9px] text-red-200">🎵 موسیقی جنگ در حال پخش — سریع بنویس، فرمانده!</p>
+                </div>
+              ) : (
+                plan.deadline && (
+                  <p className="mb-3 rounded-md border border-amber-400/30 bg-amber-400/10 p-2 text-center text-[10px] font-black text-amber-300">⏱ مهلت ثبت سناریو: {countdown(plan.deadline)}</p>
+                )
+              )}
               <label className="mb-1 block text-[10px] font-bold text-amber-300">درصد تجهیزات متعهدشده: {toFa(commit)}٪</label>
               <input type="range" min="10" max="100" step="5" value={commit} onChange={(e) => setCommit(Number(e.target.value))} className="w-full accent-red-500" />
               <p className="mt-1 text-[9px] text-slate-500">تعهد بیشتر = قدرت بیشتر + سوختن نفت/آهن/اورانیوم بیشتر</p>
@@ -861,7 +1049,7 @@ export default function War() {
               <textarea value={attText} onChange={(e) => setAttText(e.target.value)} rows={5} placeholder={'۱) بمباران موشکی پدافند\n۲) یورش زرهی با پشتیبانی پهپاد\n۳) جنگ الکترونیک...'} className="w-full resize-none rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm leading-6 text-white outline-none focus:border-red-400/50" />
               <label className="mb-1 mt-3 block text-[10px] font-bold text-cyan-300">سناریوی دفاع *</label>
               <textarea value={defText} onChange={(e) => setDefText(e.target.value)} rows={5} placeholder={'۱) پدافند لایه‌ای\n۲) کمین زرهی در دره\n۳) ضدحمله شبانه...'} className="w-full resize-none rounded-md border border-white/10 bg-black/40 px-3 py-2.5 text-sm leading-6 text-white outline-none focus:border-cyan-400/50" />
-              <p className="mt-2 rounded-md border border-amber-400/20 bg-amber-400/5 p-2 text-[9px] leading-4 text-amber-200/80"> اولویت: سناریو (۵٪) {'>'} منابع (۴۰٪) {'>'} شانس (۱۰٪)</p>
+              <p className="mt-2 rounded-md border border-amber-400/20 bg-amber-400/5 p-2 text-[9px] leading-4 text-amber-200/80">اولویت: سناریو (۵۰٪) {'>'} منابع (۴۰٪) {'>'} شانس (۱۰٪)</p>
               <button onClick={submitPlan} disabled={busy === 'plan'} className={cn('mt-4 w-full bg-gradient-to-r from-red-500 to-amber-500 py-3 font-display text-xs font-black uppercase tracking-[0.25em] text-slate-950 disabled:opacity-50', CLIP_SM)}>
                 {busy === 'plan' ? '⏳ ...' : '🚀 ارسال برنامه به فرماندهی'}
               </button>
@@ -869,6 +1057,7 @@ export default function War() {
           </motion.div>
         )}
       </AnimatePresence>
+
       {/* ─────────── مودال تحلیل ─────────── */}
       <AnimatePresence>
         {analysis && (
@@ -879,6 +1068,9 @@ export default function War() {
                 <button onClick={() => setAnalysis(null)} className="grid h-7 w-7 place-items-center text-slate-500 hover:text-white"><X size={14} /></button>
               </div>
               <p className="mb-4 text-center text-sm font-bold text-amber-300">{analysis.public_result}</p>
+                            {mySide(analysis) && !analysis.att_analysis && !analysis.def_analysis && (
+                <p className="mb-4 rounded-md border border-white/10 bg-white/5 p-3 text-center text-[10px] text-slate-500">📭 هیچ سناریویی ثبت نشد — تحلیلی وجود ندارد.</p>
+              )}
               {mySide(analysis) ? (
                 <div className="space-y-4">
                   {[{ side: 'att' }, { side: 'def' }].map((x) => {
@@ -887,7 +1079,7 @@ export default function War() {
                     if (!a) return null;
                     return (
                       <div key={x.side} className={cn('border p-4', CLIP_SM, mine ? 'border-emerald-400/30 bg-emerald-400/5' : 'border-white/10 bg-white/5')}>
-                        <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">{mine ? ' تحلیل خودت' : '👁 تحلیل حریف'}</p>
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">{mine ? '📜 تحلیل خودت' : '👁 تحلیل حریف'}</p>
                         <div className="mb-2 grid grid-cols-4 gap-1.5 text-center text-[9px]">
                           <span className={cn('border border-white/10 bg-white/5 p-1.5', CLIP_SM)}>سناریو<br /><b className="text-red-300">{toFa(a.scenario)}</b></span>
                           <span className={cn('border border-white/10 bg-white/5 p-1.5', CLIP_SM)}>منابع<br /><b className="text-amber-300">{toFa(a.asset)}</b></span>

@@ -18,7 +18,6 @@ const MAIN_LINKS = [
   { to: '/tournaments', label: 'Tournaments' },
   { to: '/dashboard', label: 'My Country' },
   { to: '/war', label: 'War' },
-  { to: '/market', label: 'Market' },
   { to: '/rankings', label: 'Rankings' },
   { to: '/friends', label: 'Friends' },
 ];

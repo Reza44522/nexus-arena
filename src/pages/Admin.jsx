@@ -15,7 +15,6 @@ import GroupsTab from '../components/admin/GroupsTab';
 import SiteLockControl from '../components/admin/SiteLockControl';
 import WarControlTab from '../components/admin/WarControlTab';
 import SpySettingsTab from '../components/admin/SpySettingsTab';
-import MarketTab from '../components/admin/MarketTab';
 import { toFa, fmtNum } from '../data/countries';
 import { cn } from '../utils/cn';
 import { Activity, Users, Shield, Swords, Search, Snowflake, Trophy, Banknote, Bell, Lock, Newspaper, Layers, Trash2, Eye, Zap, Skull, Clock, Globe, Ticket, Tv, Coins, Flame, TrendingUp, Radar } from 'lucide-react';
@@ -36,9 +35,8 @@ const SIDEBAR = [
     { id: 'overview', label: 'آمار زنده', icon: Activity },
     { id: 'warroom', label: 'اتاق جنگ', icon: Swords },
     { id: 'economy', label: 'اقتصاد کلان', icon: Coins },
-    { id: 'market', label: 'بازار آزاد', icon: TrendingUp },
     { id: 'war', label: 'جنگ و اقتصاد', icon: Flame },
-    { id: 'spy', label: '🕵️ جاسوسی' },
+    { id: 'spy', label: '🕵️ جاسوسی', icon: Eye },
   ]},
   { g: 'کاربران', items: [
     { id: 'users', label: 'کاربران', icon: Users },
@@ -273,7 +271,7 @@ export default function Admin() {
                 <p className="mb-2 px-2 font-display text-[8px] font-black uppercase tracking-[0.35em] text-slate-500">{g.g}</p>
                 {g.items.map((t) => (
                   <button key={t.id} onClick={() => setActiveTab(t.id)} className={cn('mb-1 flex w-full items-center gap-2.5 border px-3 py-2.5 text-right text-[10px] font-black transition-all', CLIP_SM, activeTab === t.id ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.25)]' : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-white')}>
-                    <t.icon size={13} /> {t.label}
+                    {t.icon ? <t.icon size={13} /> : <span className="text-[10px]">◆</span>} {t.label}
                     {t.id === 'warroom' && activeMatches.length > 0 && <span className="mr-auto grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[8px] text-white">{toFa(activeMatches.length)}</span>}
                   </button>
                 ))}
@@ -402,9 +400,6 @@ export default function Admin() {
                 </div>
               </div>
             )}
-
-            {/* ═══════════ بازار آزاد ═══════════ */}
-            {activeTab === 'market' && <MarketTab />}
 
             {/* ═══════════ جنگ و اقتصاد (قبلی) ═══════════ */}
             {activeTab === 'war' && <WarControlTab />}

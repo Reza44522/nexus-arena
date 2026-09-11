@@ -34,7 +34,6 @@ import NexusTimes from './pages/NexusTimes';
 import Statements from './pages/Statements';
 import Alliances from './pages/Alliances';
 import War from './pages/War';
-import Market from './pages/Market';
 import MilitaryStore from './pages/MilitaryStore';
 import Diplomacy from './pages/Diplomacy';
 import Rankings from './pages/Rankings';
@@ -294,7 +293,6 @@ function AppRoutes() {
       <Route path="/statements" element={<ProtectedRoute><Statements /></ProtectedRoute>} />
       <Route path="/alliances" element={<ProtectedRoute><Alliances /></ProtectedRoute>} />
       <Route path="/war" element={<ProtectedRoute><War /></ProtectedRoute>} />
-      <Route path="/market" element={<ProtectedRoute><Market /></ProtectedRoute>} />
       <Route path="/military" element={<ProtectedRoute><MilitaryStore /></ProtectedRoute>} />
             <Route path="/tech" element={<ProtectedRoute><TechTree /></ProtectedRoute>} />
       <Route path="/diplomacy" element={<ProtectedRoute><Diplomacy /></ProtectedRoute>} />
