@@ -456,7 +456,7 @@ export default function War() {
   };
 
   /* 📜 ثبت برنامه نبرد — مودال فوراً بسته می‌شود تا اعلان‌ها دیده شوند */
-   const submitPlan = async () => {
+  const submitPlan = async () => {
     if (!plan) return;
     const { data: chk } = await supabase.from('war_matches').select('*').eq('id', plan.id).single();
     if (!chk || chk.status === 'finished' || new Date(chk.scheduled_at).getTime() < Date.now()) {
@@ -483,22 +483,17 @@ export default function War() {
       let res;
       let usedAI = false;
       let ai = null;
-      if (m2.mode === 'blitz') {
-        flash('⚡ نبرد سریع: موتور داخلی در حال تحلیل...');
-        res = await supabase.rpc('war_resolve_match_auto_ai', { p_id: planId });
-      } else {
-        flash('🤖 هوش مصنوعی در حال تحلیل سناریوهاست...');
-        ai = await analyzeWar({
-          attName: nameOf(m2.attacker_country), defName: nameOf(m2.defender_country),
-          attScenario: m2.att_scenario, defScenario: m2.def_scenario,
-          attCommit: m2.att_commit, defCommit: m2.def_commit,
-          playerSide: planSide,
-        });
-        usedAI = !!ai;
-        res = ai
-          ? await supabase.rpc('war_resolve_match', { p_id: planId, p_ai_sa: ai.sa, p_ai_sd: ai.sd, p_ai_att: ai.att, p_ai_def: ai.def, p_ai_pub: ai.pub })
-          : await supabase.rpc('war_resolve_match_auto_ai', { p_id: planId });
-      }
+      flash(m2.mode === 'blitz' ? '⚡ نبرد سریع: ابتدا هوش مصنوعی، در صورت قطعی موتور داخلی...' : '🤖 هوش مصنوعی در حال تحلیل سناریوهاست...');
+      ai = await analyzeWar({
+        attName: nameOf(m2.attacker_country), defName: nameOf(m2.defender_country),
+        attScenario: m2.att_scenario, defScenario: m2.def_scenario,
+        attCommit: m2.att_commit, defCommit: m2.def_commit,
+        playerSide: planSide,
+      });
+      usedAI = !!ai;
+      res = ai
+        ? await supabase.rpc('war_resolve_match', { p_id: planId, p_ai_sa: ai.sa, p_ai_sd: ai.sd, p_ai_att: ai.att, p_ai_def: ai.def, p_ai_pub: ai.pub })
+        : await supabase.rpc('war_resolve_match_auto_ai', { p_id: planId });
       if (res.error) flash('❌ خطای حل نبرد: ' + res.error.message);
       else if (res.data && res.data.ok === false) flash('❌ ' + res.data.error);
       else {
@@ -604,6 +599,19 @@ export default function War() {
         </div>
 
         <Ticker items={tickerItems} />
+    {/* 🔐 اطلاعیه مهم VPN — بزرگ و برجسته */}
+    <div dir="rtl" className={cn('mb-6 flex items-center gap-4 border-2 border-amber-400/70 bg-gradient-to-r from-amber-500/20 via-red-500/15 to-amber-500/20 px-6 py-5 text-right shadow-[0_0_40px_rgba(251,191,36,0.4)]', CLIP)} style={{ animation: 'pulse 2s ease-in-out infinite' }}>
+      <span className="text-5xl">🔐</span>
+      <div className="flex-1">
+        <p className="mb-1.5 font-display text-lg font-black tracking-widest text-amber-200 md:text-xl" style={{ textShadow: '0 0 20px rgba(251,191,36,0.6)' }}>
+          ⚠️ فیلترشکن / VPN خود را روشن کنید!
+        </p>
+        <p className="text-sm leading-7 text-amber-100/90 md:text-base">
+          برای دریافت <b className="text-white">تحلیل هوش مصنوعی دقیق</b> و <b className="text-white">گزارش کامل نبرد</b>، حتماً VPN خود را روشن کنید.
+          {' '}بدون VPN، نتیجه با «موتور داخلی ستاد» اعلام می‌شود که دقت کمتری دارد.
+        </p>
+      </div>
+    </div>
 
         {/* هدر + کارنامه + رتبه */}
         <div className="mb-6 flex flex-wrap items-center gap-6">
@@ -671,8 +679,17 @@ export default function War() {
           </div>
         )}
 
-        {/* تب‌ها */}
-        <div className="mb-8 flex flex-wrap gap-2">
+    {/* 🔐 اطلاعیه VPN */}
+    <div className={cn('mb-4 flex items-center gap-3 border border-amber-400/40 bg-amber-400/10 px-4 py-3', CLIP_SM)}>
+      <span className="text-lg">🔐</span>
+      <p className="text-[10px] leading-5 text-amber-200">
+        <b>برای تحلیل هوش مصنوعی (نتیجهٔ دقیق‌تر و گزارش کامل) فیلترشکن/VPN خود را روشن کنید.</b>
+        {' '}بدون VPN، نتیجه با «موتور داخلی ستاد» اعلام می‌شود و ممکن است دقت کمتری داشته باشد.
+      </p>
+    </div>
+
+    {/* تب‌ها */}
+    <div className="mb-8 flex flex-wrap gap-2">
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} className={cn('flex items-center gap-2 border px-5 py-2.5 font-display text-[10px] font-black uppercase tracking-widest transition-all', CLIP_SM, tab === t.id ? 'border-red-400/60 bg-red-400/15 text-red-300 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'border-white/10 bg-white/5 text-slate-400 hover:text-white')}>
               <t.icon size={13} /> {t.label}
