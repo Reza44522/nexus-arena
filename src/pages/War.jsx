@@ -456,11 +456,15 @@ export default function War() {
   };
 
   /* 📜 ثبت برنامه نبرد — مودال فوراً بسته می‌شود تا اعلان‌ها دیده شوند */
-  const submitPlan = async () => {
-        if (!plan) return;
-    if (plan.mode === 'blitz' && plan.deadline && Date.now() > new Date(plan.deadline).getTime()) {
+   const submitPlan = async () => {
+    if (!plan) return;
+    const { data: chk } = await supabase.from('war_matches').select('*').eq('id', plan.id).single();
+    if (!chk || chk.status === 'finished' || new Date(chk.scheduled_at).getTime() < Date.now()) {
       setPlan(null);
-      return flash('⏱ زمان نبرد سریع تمام شده — سناریو قابل ثبت نیست');
+      if (chk && chk.status === 'finished') { setAnalysis(chk); flash('🏁 این نبرد تمام شده — نتیجه را ببین'); }
+      else flash('⏱ زمان این نبرد تمام شده — سناریو قابل ثبت نیست');
+      load();
+      return;
     }
     if (attText.trim().length < 30 || defText.trim().length < 30) return flash('❌ هر دو سناریو حداقل ۳۰ کاراکتر باشند');
     const planId = plan.id;
@@ -476,20 +480,31 @@ export default function War() {
     setPlan(null); setAttText(''); setDefText(''); setCommit(50);
     const { data: m2 } = await supabase.from('war_matches').select('*').eq('id', planId).single();
     if (m2?.att_sub && m2?.def_sub) {
-      flash('🤖 هوش مصنوعی در حال تحلیل سناریوهاست...');
-      const ai = await analyzeWar({
-        attName: nameOf(m2.attacker_country), defName: nameOf(m2.defender_country),
-        attScenario: m2.att_scenario, defScenario: m2.def_scenario,
-        attCommit: m2.att_commit, defCommit: m2.def_commit,
-      });
-      const res = ai
-        ? await supabase.rpc('war_resolve_match', { p_id: planId, p_ai_sa: ai.sa, p_ai_sd: ai.sd, p_ai_att: ai.att, p_ai_def: ai.def, p_ai_pub: ai.pub })
-        : await supabase.rpc('war_resolve_match', { p_id: planId });
+      let res;
+      let usedAI = false;
+      let ai = null;
+      if (m2.mode === 'blitz') {
+        flash('⚡ نبرد سریع: موتور داخلی در حال تحلیل...');
+        res = await supabase.rpc('war_resolve_match_auto_ai', { p_id: planId });
+      } else {
+        flash('🤖 هوش مصنوعی در حال تحلیل سناریوهاست...');
+        ai = await analyzeWar({
+          attName: nameOf(m2.attacker_country), defName: nameOf(m2.defender_country),
+          attScenario: m2.att_scenario, defScenario: m2.def_scenario,
+          attCommit: m2.att_commit, defCommit: m2.def_commit,
+          playerSide: planSide,
+        });
+        usedAI = !!ai;
+        res = ai
+          ? await supabase.rpc('war_resolve_match', { p_id: planId, p_ai_sa: ai.sa, p_ai_sd: ai.sd, p_ai_att: ai.att, p_ai_def: ai.def, p_ai_pub: ai.pub })
+          : await supabase.rpc('war_resolve_match_auto_ai', { p_id: planId });
+      }
       if (res.error) flash('❌ خطای حل نبرد: ' + res.error.message);
       else if (res.data && res.data.ok === false) flash('❌ ' + res.data.error);
       else {
-        pushLog('🎯 نبرد حل شد: ' + (ai ? 'تحلیل AI' : 'موتور داخلی'));
-        flash(ai ? '🤖 تحلیل AI ثبت شد!' : '⚙️ AI در دسترس نبود — موتور داخلی تحلیل کرد');
+        if (usedAI && ai.report) await supabase.rpc('war_set_ai_report', { p_id: planId, p_report: ai.report });
+        pushLog('🎯 نبرد حل شد: ' + (usedAI ? 'تحلیل AI (Gemini)' : 'موتور داخلی ستاد'));
+        flash(m2.mode === 'blitz' ? '⚡ نبرد سریع حل شد!' : usedAI ? '🤖 تحلیل AI ثبت شد!' : '⚙️ موتور داخلی ستاد تحلیل کرد');
         const { data: m3 } = await supabase.from('war_matches').select('*').eq('id', planId).single();
         if (m3) setAnalysis(m3);
       }
@@ -1058,42 +1073,137 @@ export default function War() {
         )}
       </AnimatePresence>
 
-      {/* ─────────── مودال تحلیل ─────────── */}
+      {/* ─────────── مودال تحلیل — گزارش کامل نبرد ─────────── */}
       <AnimatePresence>
         {analysis && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[16000] grid place-items-center bg-black/80 px-4 backdrop-blur-[4px]" onClick={() => setAnalysis(null)}>
-            <motion.div initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }} onClick={(e) => e.stopPropagation()} className={cn('max-h-[88vh] w-full max-w-lg overflow-y-auto border border-cyan-400/40 bg-[#0a0c08]/95 p-6', CLIP)}>
-              <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
-                <p className="font-display text-sm font-black text-white">🤖 تحلیل نبرد</p>
-                <button onClick={() => setAnalysis(null)} className="grid h-7 w-7 place-items-center text-slate-500 hover:text-white"><X size={14} /></button>
-              </div>
-              <p className="mb-4 text-center text-sm font-bold text-amber-300">{analysis.public_result}</p>
-                            {mySide(analysis) && !analysis.att_analysis && !analysis.def_analysis && (
-                <p className="mb-4 rounded-md border border-white/10 bg-white/5 p-3 text-center text-[10px] text-slate-500">📭 هیچ سناریویی ثبت نشد — تحلیلی وجود ندارد.</p>
-              )}
-              {mySide(analysis) ? (
-                <div className="space-y-4">
-                  {[{ side: 'att' }, { side: 'def' }].map((x) => {
-                    const mine = mySide(analysis) === x.side;
-                    const a = x.side === 'att' ? analysis.att_analysis : analysis.def_analysis;
-                    if (!a) return null;
-                    return (
-                      <div key={x.side} className={cn('border p-4', CLIP_SM, mine ? 'border-emerald-400/30 bg-emerald-400/5' : 'border-white/10 bg-white/5')}>
-                        <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">{mine ? '📜 تحلیل خودت' : '👁 تحلیل حریف'}</p>
-                        <div className="mb-2 grid grid-cols-4 gap-1.5 text-center text-[9px]">
-                          <span className={cn('border border-white/10 bg-white/5 p-1.5', CLIP_SM)}>سناریو<br /><b className="text-red-300">{toFa(a.scenario)}</b></span>
-                          <span className={cn('border border-white/10 bg-white/5 p-1.5', CLIP_SM)}>منابع<br /><b className="text-amber-300">{toFa(a.asset)}</b></span>
-                          <span className={cn('border border-white/10 bg-white/5 p-1.5', CLIP_SM)}>شانس<br /><b className="text-cyan-300">{toFa(a.luck)}</b></span>
-                          <span className={cn('border border-white/10 bg-white/5 p-1.5', CLIP_SM)}>نهایی<br /><b className="text-emerald-300">{toFa(a.final)}</b></span>
-                        </div>
-                        <p className="text-[10px] leading-5 text-slate-300">{a.summary}</p>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[16000] grid place-items-center bg-black/85 px-4 backdrop-blur-[4px]" onClick={() => setAnalysis(null)}>
+            <motion.div initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }} onClick={(e) => e.stopPropagation()} className={cn('max-h-[90vh] w-full max-w-2xl overflow-y-auto border border-cyan-400/40 bg-[#0a0c08]/95 p-6', CLIP)}>
+              {(() => {
+                const rep = analysis.ai_report || null;
+                const mine = mySide(analysis);
+                const aA = analysis.att_analysis || null;
+                const aD = analysis.def_analysis || null;
+                const attName = nameOf(analysis.attacker_country);
+                const defName = analysis.defender_country ? nameOf(analysis.defender_country) : '—';
+                const iWon = mine && analysis.winner_country === country?.id;
+                const bars = [
+                  { l: 'سناریو', a: aA?.scenario, d: aD?.scenario },
+                  { l: 'منابع', a: aA?.asset, d: aD?.asset },
+                  { l: 'شانس', a: aA?.luck, d: aD?.luck },
+                  { l: 'نهایی', a: aA?.final, d: aD?.final },
+                ];
+                return (
+                  <>
+                    <div className="mb-4 border-b border-white/10 pb-3 text-center">
+                      <p className="font-display text-[9px] uppercase tracking-[0.4em] text-slate-500">گزارش تحلیل نبرد {rep?.source === 'staff' ? '— ستاد کل' : '— هوش مصنوعی فرماندهی'}</p>
+                      <h3 className="mt-2 text-sm font-black leading-6 text-amber-300 md:text-base">{rep?.title || analysis.public_result}</h3>
+                      {mine && (
+                        <p className={cn('mx-auto mt-3 inline-block border px-4 py-1.5 font-display text-xs font-black', CLIP_SM, iWon ? 'border-emerald-400/60 bg-emerald-400/15 text-emerald-300' : analysis.winner_country ? 'border-red-400/60 bg-red-400/15 text-red-300' : 'border-slate-400/40 bg-white/5 text-slate-300')}>
+                          {iWon ? '🏆 پیروزی از آن تو!' : analysis.winner_country ? '💀 شکست خوردی' : '🤝 بدون برنده'}
+                        </p>
+                      )}
+                    </div>
+
+                    {aA && aD && (
+                      <div className={cn('mb-4 border border-white/10 bg-white/5 p-4', CLIP)}>
+                        <p className="mb-2 flex justify-between text-[9px] font-black"><span className="text-red-300">🔴 {attName}</span><span className="text-cyan-300">{defName} 🔵</span></p>
+                        {bars.map((b) => (
+                          <div key={b.l} className="mb-2">
+                            <p className="mb-0.5 flex justify-between text-[9px] text-slate-500"><span>{b.l}</span><span><b className="text-red-300">{toFa(b.a ?? 0)}</b> / <b className="text-cyan-300">{toFa(b.d ?? 0)}</b></span></p>
+                            <div className="flex h-2 gap-px overflow-hidden rounded-full bg-white/5">
+                              <div className="h-full bg-red-500/80" style={{ width: `${(Number(b.a) || 0) / 2}%` }} />
+                              <div className="h-full flex-1" />
+                              <div className="h-full bg-cyan-400/80" style={{ width: `${(Number(b.d) || 0) / 2}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                        <p className="mt-1 text-center text-[8px] text-slate-600">نهایی = ۵۰٪ سناریو + ۴۰٪ منابع + ۱۰٪ شانس</p>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="rounded-md border border-white/10 bg-white/5 p-3 text-center text-[10px] text-slate-500">🔒 تحلیل کامل فقط در اختیار دو کشور نبرد است.</p>
-              )}
+                    )}
+
+                    {rep?.phases?.length > 0 && (
+                      <div className="mb-4">
+                        <p className="mb-2 font-display text-[10px] uppercase tracking-[0.3em] text-cyan-300">⏱ فازهای نبرد</p>
+                        <div className="space-y-2">
+                          {rep.phases.map((ph, i) => (
+                            <div key={i} className={cn('border border-white/10 bg-white/5 p-3', CLIP_SM)}>
+                              <p className="flex items-center justify-between text-[10px] font-black text-white">
+                                <span>{ph.name}</span>
+                                <span className={cn('border px-2 py-0.5 text-[8px]', CLIP_SM, ph.winner === 'att' ? 'border-red-400/50 bg-red-400/10 text-red-300' : ph.winner === 'def' ? 'border-cyan-400/50 bg-cyan-400/10 text-cyan-300' : 'border-slate-400/40 bg-white/5 text-slate-400')}>
+                                  {ph.winner === 'att' ? 'برتری مهاجم' : ph.winner === 'def' ? 'برتری مدافع' : 'مساوی'}
+                                </span>
+                              </p>
+                              {ph.att && <p className="mt-1.5 text-[9px] leading-4 text-red-200/80">🔴 {ph.att}</p>}
+                              {ph.def && <p className="mt-1 text-[9px] leading-4 text-cyan-200/80">🔵 {ph.def}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {(rep?.turning || rep?.mvp) && (
+                      <div className="mb-4 grid gap-2 md:grid-cols-2">
+                        {rep.turning && (
+                          <div className={cn('border border-amber-400/30 bg-amber-400/5 p-3', CLIP_SM)}>
+                            <p className="text-[9px] font-black text-amber-300">🌀 نقطه عطف نبرد</p>
+                            <p className="mt-1 text-[10px] leading-5 text-slate-200">{rep.turning}</p>
+                          </div>
+                        )}
+                        {rep.mvp && (
+                          <div className={cn('border border-fuchsia-400/30 bg-fuchsia-400/5 p-3', CLIP_SM)}>
+                            <p className="text-[9px] font-black text-fuchsia-300">🌟 ستارهٔ میدان</p>
+                            <p className="mt-1 text-[10px] leading-5 text-slate-200">{rep.mvp}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {rep?.casualties && (
+                      <div className="mb-4 grid grid-cols-2 gap-2 text-center">
+                        <div className={cn('border border-red-400/20 bg-red-400/5 p-2', CLIP_SM)}><p className="text-[8px] text-slate-500">تلفات مهاجم</p><p className="text-[10px] font-bold text-red-300">{rep.casualties.att}</p></div>
+                        <div className={cn('border border-cyan-400/20 bg-cyan-400/5 p-2', CLIP_SM)}><p className="text-[8px] text-slate-500">تلفات مدافع</p><p className="text-[10px] font-bold text-cyan-300">{rep.casualties.def}</p></div>
+                      </div>
+                    )}
+
+                    {mine && rep && (
+                      <div className="mb-4 grid gap-2 md:grid-cols-2">
+                        <div className={cn('border border-emerald-400/20 bg-emerald-400/5 p-3', CLIP_SM)}>
+                          <p className="mb-1 text-[9px] font-black text-emerald-300">💪 نقاط قوت تو</p>
+                          {(rep.myStrengths || []).map((s, i) => (<p key={i} className="mb-1 text-[9px] leading-4 text-slate-300">+ {s}</p>))}
+                        </div>
+                        <div className={cn('border border-red-400/20 bg-red-400/5 p-3', CLIP_SM)}>
+                          <p className="mb-1 text-[9px] font-black text-red-300">🩸 نقاط ضعف تو</p>
+                          {(rep.myWeaknesses || []).map((s, i) => (<p key={i} className="mb-1 text-[9px] leading-4 text-slate-300">− {s}</p>))}
+                        </div>
+                      </div>
+                    )}
+
+                    {mine && aA && aD && (
+                      <div className="mb-4 space-y-2">
+                        <div className={cn('border border-white/10 bg-white/5 p-3', CLIP_SM)}>
+                          <p className="mb-1 text-[9px] font-black text-slate-400">📜 روایت کامل عملکرد تو</p>
+                          <p className="text-[10px] leading-5 text-slate-200">{mine === 'att' ? aA.summary : aD.summary}</p>
+                        </div>
+                        <div className={cn('border border-white/10 bg-white/5 p-3', CLIP_SM)}>
+                          <p className="mb-1 text-[9px] font-black text-slate-400">👁 روایت کامل عملکرد حریف</p>
+                          <p className="text-[10px] leading-5 text-slate-200">{mine === 'att' ? aD.summary : aA.summary}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {rep?.lessons?.length > 0 && (
+                      <div className={cn('border border-cyan-400/20 bg-cyan-400/5 p-3', CLIP_SM)}>
+                        <p className="mb-1 text-[9px] font-black text-cyan-300">🎓 درس‌های ستاد برای نبرد بعدی</p>
+                        {rep.lessons.map((l, i) => (<p key={i} className="mb-1 text-[9px] leading-4 text-slate-300">{toFa(i + 1)}. {l}</p>))}
+                      </div>
+                    )}
+
+                    {!mine && <p className="rounded-md border border-white/10 bg-white/5 p-3 text-center text-[10px] text-slate-500">🔒 تحلیل کامل فقط در اختیار دو کشور نبرد است.</p>}
+
+                    <button onClick={() => setAnalysis(null)} className={cn('mt-4 w-full border border-white/10 bg-white/5 py-2.5 font-display text-[10px] font-black uppercase tracking-[0.25em] text-slate-300 hover:bg-white/10', CLIP_SM)}>بستن گزارش</button>
+                  </>
+                );
+              })()}
             </motion.div>
           </motion.div>
         )}

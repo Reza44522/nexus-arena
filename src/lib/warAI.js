@@ -1,140 +1,111 @@
-import { supabase } from './supabase';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY || '';
+const GEMINI_MODELS = ['gemini-3.6-flash'];
 
-const clamp = (n) => Math.max(0, Math.min(100, isNaN(n) ? 0 : n));
-
-export async function getAISettings() {
-  const { data } = await supabase.from('ai_settings').select('*').eq('id', 1).maybeSingle();
-  return {
-    provider: data?.provider || 'local',
-    api_key: (data?.api_key || '').trim(),
-    model: (data?.model || '').trim(),
-  };
-}
-
-function buildPrompt(i) {
-  return `تو «ژنرال هوش مصنوعی تاکتیکی» یک بازی جنگ استراتژیک هستی. دو فرمانده سناریوی حمله و دفاع نوشته‌اند. با معیارهای عمق تاکتیکی، تنوع یگان‌ها، لجستیک، پدافند، ضدحمله، غافلگیری و واقع‌گرایی نظامی قضاوت کن.
-فقط و فقط یک JSON معتبر برگردان (بدون هیچ متن اضافه):
-{"att_score": <عدد 0-100>, "def_score": <عدد 0-100>, "att_analysis": "<تحلیل 2-3 جمله‌ای فارسی فرمانده اول>", "def_analysis": "<تحلیل 2-3 جمله‌ای فارسی فرمانده دوم>", "public": "<یک جمله خبری فارسی درباره برنده و دلیل اصلی>"}
-
-فرمانده اول: ${i.attName} (تعهد تجهیزات ${i.attCommit}٪)
-سناریوی فرمانده اول: ${i.attScenario}
-
-فرمانده دوم: ${i.defName} (تعهد تجهیزات ${i.defCommit}٪)
-سناریوی فرمانده دوم: ${i.defScenario}`;
-}
-
-const TEST_PROMPT = 'فقط یک JSON تست برگردان: {"att_score":70,"def_score":60,"att_analysis":"تست اتصال موفق","def_analysis":"تست اتصال موفق","public":"✅ اتصال برقرار است"}';
-
-function parse(text) {
-  const m = (text || '').match(/\{[\s\S]*\}/);
-  if (!m) return null;
+function parseJSONSafe(text) {
   try {
-    const j = JSON.parse(m[0]);
-    return {
-      sa: clamp(Number(j.att_score)),
-      sd: clamp(Number(j.def_score)),
-      att: String(j.att_analysis || ''),
-      def: String(j.def_analysis || ''),
-      pub: String(j.public || ''),
-    };
-  } catch {
-    return null;
+    const m = String(text || '').match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    return JSON.parse(m[0]);
+  } catch (e) { return null; }
+}
+function extractContent(j) {
+  if (!j) return '';
+  if (typeof j === 'string') return j;
+  if (Array.isArray(j)) return extractContent(j[0]);
+  if (j.choices && j.choices[0]) {
+    const m = j.choices[0].message || j.choices[0];
+    if (m && typeof m.content === 'string') return m.content;
   }
+  if (j.candidates && j.candidates[0]) {
+    const parts = j.candidates[0]?.content?.parts;
+    if (parts && parts[0] && typeof parts[0].text === 'string') return parts[0].text;
+  }
+  if (typeof j.content === 'string') return j.content;
+  return '';
+}
+function gibScore(t) {
+  const s = String(t || '').trim();
+  if (!s) return 3;
+  let bad = 0;
+  const words = s.split(/\s+/).filter(Boolean);
+  const avgWord = words.length ? s.replace(/\s/g, '').length / words.length : s.length;
+  if (avgWord > 18) bad++;
+  if (words.length <= 2 && s.length > 60) bad++;
+  const vowels = (s.match(/[aeiouآاایوههویي]/gi) || []).length;
+  const letters = (s.match(/[a-zا-ی]/gi) || []).length;
+  if (letters > 10 && vowels / letters < 0.18) bad++;
+  if (!/\s/.test(s) && s.length > 40) bad++;
+  const hasFa = /[ا-ی]/.test(s);
+  const hasEnWord = /\b[a-zA-Z]{3,}\b/.test(s);
+  if (!hasFa && !hasEnWord) bad++;
+  return bad;
+}
+const isGib = (t) => gibScore(t) >= 2;
+
+const JUDGE_SYSTEM =
+  'You are the supreme war-simulation judge of a Persian strategy game. Produce a FULL battle report. ' +
+  'Reply ONLY with valid JSON in this exact shape: ' +
+  '{"sa":0-100,"sd":0-100,"att":"...","def":"...","pub":"...","report":{' +
+  '"title":"...","phases":[{"name":"فاز ۱ — ...","att":"...","def":"...","winner":"att|def|draw"},{"name":"فاز ۲ — ...","att":"...","def":"...","winner":"att|def|draw"},{"name":"فاز ۳ — ...","att":"...","def":"...","winner":"att|def|draw"}],' +
+  '"turning":"...","mvp":"...","casualties":{"att":"...","def":"..."},' +
+  '"myStrengths":["...","...","..."],"myWeaknesses":["...","...","..."],' +
+  '"lessons":["...","...","..."]}} ' +
+  'Rules: sa/sd are scenario quality scores. All report texts MUST be in Persian. phases = exactly 3 battle phases describing what attacker and defender did in each and who gained the upper hand. turning = the decisive turning point. mvp = the single most impactful action of the battle. casualties = short loss estimate per side. myStrengths/myWeaknesses = exactly 3 bullet items each about the HUMAN PLAYER side. lessons = 3 actionable coaching tips for the player. ' +
+  'CRITICAL: If a scenario is gibberish or unreadable, its score MUST be 0-5 and its analysis must say in Persian that the scenario was unreadable and rejected. Never invent tactical meaning for nonsense text.';
+
+async function callGemini(system, user, temp = 0.4) {
+  if (!GEMINI_KEY) { console.warn('[WarAI] ❌ کلید جمینای در .env.local نیست'); return null; }
+  for (const model of GEMINI_MODELS) {
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 30000);
+      const r = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + GEMINI_KEY },
+        body: JSON.stringify({ model, temperature: temp, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
+        signal: ctrl.signal,
+      });
+      clearTimeout(to);
+      if (!r.ok) { console.warn('[WarAI]', model, '→', r.status); continue; }
+      const j = await r.json();
+      const content = extractContent(j);
+      if (content) { console.log('[WarAI] ✅ Gemini OK:', model); return content; }
+    } catch (e) { console.warn('[WarAI]', model, '→ NETWORK:', e.message); }
+  }
+  return null;
 }
 
-function extractText(provider, body) {
-  if (provider === 'gemini') return body?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  return body?.choices?.[0]?.message?.content || '';
+export async function analyzeWar({ attName, defName, attScenario, defScenario, attCommit, defCommit, playerSide }) {
+  const gibA = isGib(attScenario);
+  const gibD = isGib(defScenario);
+  const note =
+    (gibA ? 'SYSTEM NOTE: The ATTACKER scenario is UNREADABLE GIBBERISH. ' : '') +
+    (gibD ? 'SYSTEM NOTE: The DEFENDER scenario is UNREADABLE GIBBERISH. ' : '') +
+    `SYSTEM NOTE: The HUMAN PLAYER controls the ${playerSide === 'att' ? 'ATTACKER' : 'DEFENDER'} side; the other side is the opponent. myStrengths/myWeaknesses/lessons must refer to the HUMAN PLAYER side. `;
+  const content = await callGemini(
+    JUDGE_SYSTEM,
+    note +
+    `Attacker: ${attName} (commit ${attCommit}%) scenario: ${attScenario}\n` +
+    `Defender: ${defName} (commit ${defCommit}%) scenario: ${defScenario}`,
+    0.4
+  );
+  const p = parseJSONSafe(content);
+  if (!p || p.sa === undefined || p.sd === undefined) return null;
+  const clamp = (n, a, b) => Math.max(a, Math.min(b, Number(n) || 0));
+  let sa = clamp(p.sa, 0, 100);
+  let sd = clamp(p.sd, 0, 100);
+  let att = String(p.att || '');
+  let def = String(p.def || '');
+  const TAG = '⚠️ سناریوی ارسالی این فرمانده ناخوانا و نامعتبر است و به‌عنوان برنامهٔ عملیاتی پذیرفته نشد؛ امتیاز سناریو حداقل شد. ';
+  if (gibA) { sa = Math.min(sa, 5); att = TAG + att; }
+  if (gibD) { sd = Math.min(sd, 5); def = TAG + def; }
+  return { sa, sd, att: att.slice(0, 600), def: def.slice(0, 600), pub: String(p.pub || '').slice(0, 300), report: p.report || null };
 }
 
-const COMPAT = {
-  bazaarlink: { base: 'https://api.bazaarlink.ai/v1', models: ['gpt-4o-mini', 'qwen-plus', 'qwen-max'] },
-  grok: { base: 'https://api.x.ai/v1', models: ['grok-3-mini', 'grok-3', 'grok-4'] },
-  zai: { base: 'https://api.z.ai/api/paas/v4', models: ['glm-4.5-flash', 'glm-4.5-air', 'glm-4.7', 'glm-4.6', 'glm-4.5'] },
-  deepseek: { base: 'https://api.deepseek.com', models: ['deepseek-chat', 'deepseek-reasoner'] },
-  openai: { base: 'https://api.openai.com/v1', models: ['gpt-4o-mini', 'gpt-4o'] },
-  qwen: { base: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', models: ['qwen-plus', 'qwen-turbo', 'qwen3.7-max'] },
-  groq: { base: 'https://api.groq.com/openai/v1', models: ['llama-3.1-8b-instant'] },
-  openrouter: { base: 'https://openrouter.ai/api/v1', models: ['meta-llama/llama-3.1-8b-instruct'] },
-};
-
-async function directCall(provider, model, key, prompt) {
-  if (provider === 'gemini') {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status} — ` + (await r.text()).slice(0, 160));
-    return extractText('gemini', await r.json());
-  }
-  const c = COMPAT[provider];
-  const r = await fetch(c.base + '/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }] }),
-  });
-  if (!r.ok) throw new Error(`HTTP ${r.status} — ` + (await r.text()).slice(0, 160));
-  return extractText(provider, await r.json());
+export async function pingAI(prompt, fallback) {
+  const p = typeof prompt === 'string' ? prompt : JSON.stringify(prompt || {});
+  const fb = typeof fallback === 'string' ? fallback : '📡 گزارش میدانی: درگیری‌های مرزی ادامه دارد؛ فرماندهان آماده‌باش باشند.';
+  const content = await callGemini('You are a war-news announcer for a Persian strategy game. Reply with ONLY one short Persian sentence (max 40 words).', p, 0.7);
+  return (content || '').trim() || fb;
 }
-
-async function serverProxy(prompt) {
-  try {
-    const { data: id, error } = await supabase.rpc('ai_start', { p_prompt: prompt });
-    if (error) return { err: 'RPC ai_start: ' + error.message };
-    if (id == null) return { err: 'ai_start=null (کلید خالی یا pg_net غیرفعال)' };
-    for (let i = 0; i < 16; i++) {
-      await new Promise((r) => setTimeout(r, 1500));
-      const { data, error: e2 } = await supabase.rpc('ai_poll', { p_id: id });
-      if (e2) return { err: 'RPC ai_poll: ' + e2.message };
-      if (data?.state === 'done') {
-        if (data.code >= 200 && data.code < 300) return { body: data.body };
-        return { err: `proxy HTTP ${data.code}: ` + JSON.stringify(data.body).slice(0, 160) };
-      }
-      if (data?.state === 'error') return { err: 'proxy: ' + (data.detail || 'خطای شبکه سرور') };
-    }
-    return { err: 'proxy timeout (24 ثانیه)' };
-  } catch (e) {
-    return { err: String(e?.message || e) };
-  }
-}
-
-export async function analyzeWar(input, withDetail = false) {
-  const s = await getAISettings();
-  const fail = (d) => (withDetail ? { ok: false, detail: d } : null);
-
-  if (s.provider === 'local') return fail('روی موتور داخلی تنظیم شده');
-  if (!s.api_key) return fail('کلید API ذخیره نشده');
-
-  const prompt = withDetail ? TEST_PROMPT : buildPrompt(input);
-  let text = '';
-  let proxyErr = '';
-
-  if (s.provider === 'gemini') {
-    for (const m of s.model ? [s.model] : ['gemini-3.6-flash', 'gemini-2.5-flash']) {
-      try { text = await directCall('gemini', m, s.api_key, prompt); break; }
-      catch (e) { console.warn('🤖 [gemini/' + m + ']', e.message); }
-    }
-  } else if (COMPAT[s.provider]) {
-    for (const m of s.model ? [s.model] : COMPAT[s.provider].models) {
-      try { text = await directCall(s.provider, m, s.api_key, prompt); break; }
-      catch (e) { console.warn('🤖 [' + s.provider + '/' + m + ']', e.message); }
-    }
-  } else {
-    return fail('پرووایدر ناشناخته: ' + s.provider);
-  }
-
-  if (!text) {
-    const pr = await serverProxy(prompt);
-    if (pr.body) text = extractText(s.provider, pr.body);
-    else proxyErr = pr.err;
-  }
-
-  const parsed = parse(text);
-  if (!parsed) {
-    return fail(text ? 'پاسخ JSON نبود: ' + text.slice(0, 100) : 'سرور: ' + (proxyErr || 'نامشخص'));
-  }
-  return withDetail ? { ok: true, ...parsed } : parsed;
-}
-
-export const pingAI = () => analyzeWar(null, true);
