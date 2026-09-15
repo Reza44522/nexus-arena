@@ -265,10 +265,32 @@ export default function War() {
     const t = setInterval(() => setNow(Date.now()), 1000);
     const ch = supabase
       .channel('war-ultra-' + user?.id + '-' + Math.random().toString(36).slice(2))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'war_matches' }, (p) => {
-        pushLog(p.eventType === 'UPDATE' && p.new?.status === 'finished' ? '⚔️ یک نبرد به پایان رسید: ' + (p.new?.public_result || '') : '📡 رویداد جدید نبرد ثبت شد');
-        load();
-      })
+.on('postgres_changes', { event: '*', schema: 'public', table: 'war_matches' }, async (p) => {
+  pushLog(p.eventType === 'UPDATE' && p.new?.status === 'finished' ? '⚔️ یک نبرد به پایان رسید: ' + (p.new?.public_result || '') : '📡 رویداد جدید نبرد ثبت شد');
+
+  // ✅ اگر نبرد تمام شده و مربوط به کاربر است، فوراً نتیجه را نشان بده
+  if (
+    p.eventType === 'UPDATE' &&
+    p.new?.status === 'finished' &&
+    country?.id &&
+    (p.new.attacker_country === country.id || p.new.defender_country === country.id)
+  ) {
+    setAnalysis(p.new);
+  }
+
+  // ✅ اگر نبرد بلیتز جدید ساخته شده و مربوط به کاربر است، مودال سناریو را باز کن
+  if (
+    p.eventType === 'INSERT' &&
+    p.new?.mode === 'blitz' &&
+    p.new?.status !== 'finished' &&
+    country?.id &&
+    (p.new.attacker_country === country.id || p.new.defender_country === country.id)
+  ) {
+    openBlitzPlan(p.new.id);
+  }
+
+  load();
+})
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sanctions' }, () => { pushLog('🥶 یک تحریم جدید در جهان ثبت شد'); load(); })
       .subscribe();
     return () => { clearInterval(t); supabase.removeChannel(ch); };
@@ -1117,33 +1139,35 @@ export default function War() {
         )}
       </AnimatePresence>
 
-       {/* ─────────── مودال تحلیل — سوپر سینمایی ─────────── */}
+      {/* ─────────── مودال تحلیل — سوپر سینمایی ─────────── */}
       <AnimatePresence>
         {analysis && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[16000] grid place-items-center bg-black/90 px-4 backdrop-blur-md"
+            className="fixed inset-0 z-[16000] grid place-items-center bg-black/95 px-4 backdrop-blur-xl"
             onClick={() => setAnalysis(null)}
           >
             <motion.div
-              initial={{ scale: 0.85, y: 40, rotateX: 15 }}
+              initial={{ scale: 0.7, y: 60, rotateX: 20 }}
               animate={{ scale: 1, y: 0, rotateX: 0 }}
-              exit={{ scale: 0.85, y: 40, rotateX: -15 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              exit={{ scale: 0.7, y: 60, rotateX: -20 }}
+              transition={{ type: "spring", stiffness: 200, damping: 25 }}
               onClick={(e) => e.stopPropagation()}
               className={cn(
-                'relative max-h-[92vh] w-full max-w-3xl overflow-y-auto border-2 border-cyan-400/50 bg-gradient-to-br from-[#0a0c08] via-[#1a0a0a] to-[#0a0c08] p-8 shadow-[0_0_80px_rgba(239,68,68,0.3)]',
+                'relative max-h-[94vh] w-full max-w-4xl overflow-y-auto border-2 border-cyan-400/60 bg-gradient-to-br from-[#0a0c08] via-[#1a0a0a] to-[#0a0c08] p-8 shadow-[0_0_100px_rgba(239,68,68,0.4)]',
                 CLIP
               )}
-              style={{ perspective: '1000px' }}
+              style={{ perspective: '1200px' }}
             >
               {/* افکت‌های بصری پس‌زمینه */}
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="absolute -top-20 -left-20 h-60 w-60 rounded-full bg-red-500/10 blur-[100px]" style={{ animation: 'aurora 8s ease-in-out infinite alternate' }} />
-                <div className="absolute -bottom-20 -right-20 h-60 w-60 rounded-full bg-cyan-500/10 blur-[100px]" style={{ animation: 'aurora 10s ease-in-out infinite alternate-reverse' }} />
-                <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
+                <div className="absolute -top-32 -left-32 h-80 w-80 rounded-full bg-red-500/15 blur-[120px]" style={{ animation: 'aurora 8s ease-in-out infinite alternate' }} />
+                <div className="absolute -bottom-32 -right-32 h-80 w-80 rounded-full bg-cyan-500/15 blur-[120px]" style={{ animation: 'aurora 10s ease-in-out infinite alternate-reverse' }} />
+                <div className="absolute top-1/2 left-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/10 blur-[150px]" style={{ animation: 'aurora 12s ease-in-out infinite' }} />
+                <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
+                <div className="absolute inset-0" style={{ background: 'repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 3px)' }} />
               </div>
 
               {(() => {
@@ -1155,49 +1179,55 @@ export default function War() {
                 const defName = analysis.defender_country ? nameOf(analysis.defender_country) : '—';
                 const iWon = mine && analysis.winner_country === country?.id;
                 const bars = [
-                  { l: 'سناریو', a: aA?.scenario, d: aD?.scenario, icon: '📋' },
-                  { l: 'منابع', a: aA?.asset, d: aD?.asset, icon: '⚙️' },
-                  { l: 'شانس', a: aA?.luck, d: aD?.luck, icon: '🎲' },
-                  { l: 'نهایی', a: aA?.final, d: aD?.final, icon: '🏆' },
+                  { l: 'سناریو', a: aA?.scenario, d: aD?.scenario, icon: '📋', color: 'from-red-600 to-red-400' },
+                  { l: 'منابع', a: aA?.asset, d: aD?.asset, icon: '️', color: 'from-amber-600 to-amber-400' },
+                  { l: 'شانس', a: aA?.luck, d: aD?.luck, icon: '🎲', color: 'from-purple-600 to-purple-400' },
+                  { l: 'نهایی', a: aA?.final, d: aD?.final, icon: '🏆', color: 'from-emerald-600 to-emerald-400' },
                 ];
 
                 return (
                   <>
                     {/* هدر سینمایی */}
-                    <div className="relative mb-6 border-b-2 border-cyan-400/30 pb-4 text-center">
+                    <div className="relative mb-8 border-b-2 border-cyan-400/40 pb-6 text-center">
                       <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.2, type: "spring" }}
-                        className="mb-2 text-6xl"
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+                        className="mb-4 text-7xl"
+                        style={{ filter: 'drop-shadow(0 0 30px rgba(251,191,36,0.6))' }}
                       >
-                        {iWon ? '🏆' : analysis.winner_country ? '⚔️' : '🤝'}
+                        {iWon ? '🏆' : analysis.winner_country ? '️' : '🤝'}
                       </motion.div>
-                      <p className="mb-2 font-display text-[10px] uppercase tracking-[0.5em] text-cyan-400/70">
-                        گزارش تحلیل نبرد {rep?.source === 'staff' ? '— ستاد کل' : '— هوش مصنوعی فرماندهی'}
-                      </p>
-                      <motion.h3
+                      <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="text-xl font-black leading-7 text-amber-300 md:text-2xl"
-                        style={{ textShadow: '0 0 30px rgba(251,191,36,0.5)' }}
+                        className="mb-3 font-display text-[11px] uppercase tracking-[0.6em] text-cyan-400/80"
+                      >
+                        گزارش تحلیل نبرد {rep?.source === 'staff' ? '— ستاد کل' : '— هوش مصنوعی فرماندهی'}
+                      </motion.p>
+                      <motion.h3
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="text-2xl font-black leading-8 text-amber-300 md:text-3xl"
+                        style={{ textShadow: '0 0 40px rgba(251,191,36,0.6)' }}
                       >
                         {rep?.title || analysis.public_result}
                       </motion.h3>
                       {mine && (
                         <motion.div
-                          initial={{ scale: 0, rotate: -180 }}
-                          animate={{ scale: 1, rotate: 0 }}
-                          transition={{ delay: 0.4, type: "spring" }}
+                          initial={{ scale: 0, rotateY: 90 }}
+                          animate={{ scale: 1, rotateY: 0 }}
+                          transition={{ delay: 0.5, type: "spring" }}
                           className={cn(
-                            'mx-auto mt-4 inline-block border-2 px-6 py-2 font-display text-sm font-black',
+                            'mx-auto mt-6 inline-block border-2 px-8 py-3 font-display text-base font-black',
                             CLIP_SM,
                             iWon
-                              ? 'border-emerald-400/70 bg-gradient-to-r from-emerald-400/20 to-cyan-400/20 text-emerald-300 shadow-[0_0_30px_rgba(52,211,153,0.5)]'
+                              ? 'border-emerald-400/80 bg-gradient-to-r from-emerald-400/30 to-cyan-400/30 text-emerald-300 shadow-[0_0_50px_rgba(52,211,153,0.6)]'
                               : analysis.winner_country
-                              ? 'border-red-400/70 bg-gradient-to-r from-red-400/20 to-amber-400/20 text-red-300 shadow-[0_0_30px_rgba(239,68,68,0.5)]'
-                              : 'border-slate-400/40 bg-white/5 text-slate-300'
+                              ? 'border-red-400/80 bg-gradient-to-r from-red-400/30 to-amber-400/30 text-red-300 shadow-[0_0_50px_rgba(239,68,68,0.6)]'
+                              : 'border-slate-400/50 bg-white/10 text-slate-300'
                           )}
                         >
                           {iWon ? '🏆 پیروزی از آن تو!' : analysis.winner_country ? '💀 شکست خوردی' : '🤝 بدون برنده'}
@@ -1208,63 +1238,63 @@ export default function War() {
                     {/* نمودار مقایسه‌ای پیشرفته */}
                     {aA && aD && (
                       <motion.div
-                        initial={{ opacity: 0, x: -30 }}
+                        initial={{ opacity: 0, x: -50 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.5 }}
-                        className={cn('mb-6 border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5', CLIP)}
+                        transition={{ delay: 0.6 }}
+                        className={cn('mb-8 border border-white/15 bg-gradient-to-br from-white/8 to-transparent p-6', CLIP)}
                       >
-                        <div className="mb-4 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
-                            <span className="font-display text-sm font-black text-red-300">{attName}</span>
+                        <div className="mb-6 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="h-4 w-4 rounded-full bg-red-500 shadow-[0_0_15px_rgba(239,68,68,1)]" />
+                            <span className="font-display text-lg font-black text-red-300">{attName}</span>
                           </div>
-                          <span className="font-display text-xs text-slate-500">VS</span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-display text-sm font-black text-cyan-300">{defName}</span>
-                            <div className="h-3 w-3 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                          <span className="font-display text-xl text-slate-500">VS</span>
+                          <div className="flex items-center gap-3">
+                            <span className="font-display text-lg font-black text-cyan-300">{defName}</span>
+                            <div className="h-4 w-4 rounded-full bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,1)]" />
                           </div>
                         </div>
 
-                        <div className="space-y-4">
+                        <div className="space-y-5">
                           {bars.map((b, idx) => (
                             <motion.div
                               key={b.l}
-                              initial={{ opacity: 0, y: 10 }}
+                              initial={{ opacity: 0, y: 20 }}
                               animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: 0.6 + idx * 0.1 }}
+                              transition={{ delay: 0.7 + idx * 0.15 }}
                             >
-                              <div className="mb-1.5 flex items-center justify-between">
-                                <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-                                  <span>{b.icon}</span> {b.l}
+                              <div className="mb-2 flex items-center justify-between">
+                                <span className="flex items-center gap-2 text-sm font-bold text-slate-300">
+                                  <span className="text-xl">{b.icon}</span> {b.l}
                                 </span>
-                                <div className="flex gap-3 text-[10px] font-black">
+                                <div className="flex gap-4 text-sm font-black">
                                   <span className="text-red-300">{toFa(b.a ?? 0)}</span>
                                   <span className="text-slate-600">/</span>
                                   <span className="text-cyan-300">{toFa(b.d ?? 0)}</span>
                                 </div>
                               </div>
-                              <div className="relative flex h-3 gap-1 overflow-hidden rounded-full bg-white/5">
+                              <div className="relative flex h-4 gap-1 overflow-hidden rounded-full bg-white/8">
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: `${(Number(b.a) || 0) / 2}%` }}
-                                  transition={{ delay: 0.7 + idx * 0.1, duration: 0.8 }}
-                                  className="absolute left-0 h-full bg-gradient-to-r from-red-600 to-red-400 shadow-[0_0_10px_rgba(239,68,68,0.6)]"
+                                  transition={{ delay: 0.8 + idx * 0.15, duration: 1, ease: "easeOut" }}
+                                  className={`absolute left-0 h-full bg-gradient-to-r ${b.color} shadow-[0_0_15px_rgba(239,68,68,0.8)]`}
                                 />
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: `${(Number(b.d) || 0) / 2}%` }}
-                                  transition={{ delay: 0.7 + idx * 0.1, duration: 0.8 }}
-                                  className="absolute right-0 h-full bg-gradient-to-l from-cyan-600 to-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.6)]"
+                                  transition={{ delay: 0.8 + idx * 0.15, duration: 1, ease: "easeOut" }}
+                                  className="absolute right-0 h-full bg-gradient-to-l from-cyan-600 to-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.8)]"
                                 />
                               </div>
                             </motion.div>
                           ))}
                         </div>
 
-                        <div className="mt-4 flex items-center justify-center gap-2 border-t border-white/10 pt-3">
-                          <span className="text-[9px] text-slate-500">فرمول:</span>
-                          <span className="rounded bg-white/5 px-2 py-0.5 font-mono text-[9px] text-cyan-300">
-                            ۵۰٪ سناریو + ۴۰٪ منابع + ۱۰٪ شانس
+                        <div className="mt-6 flex items-center justify-center gap-3 border-t border-white/15 pt-4">
+                          <span className="text-xs text-slate-500">فرمول:</span>
+                          <span className="rounded bg-white/10 px-3 py-1 font-mono text-xs text-cyan-300">
+                            ۵۰٪ سناریو + ۴۰٪ منابع + ۱٪ شانس
                           </span>
                         </div>
                       </motion.div>
@@ -1275,63 +1305,63 @@ export default function War() {
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: 0.8 }}
-                        className="mb-6"
+                        transition={{ delay: 0.9 }}
+                        className="mb-8"
                       >
-                        <div className="mb-4 flex items-center gap-2">
-                          <span className="text-2xl"></span>
-                          <p className="font-display text-sm uppercase tracking-[0.3em] text-cyan-300">فازهای نبرد</p>
+                        <div className="mb-6 flex items-center gap-3">
+                          <span className="text-3xl">⏱</span>
+                          <p className="font-display text-lg uppercase tracking-[0.4em] text-cyan-300">فازهای نبرد</p>
                         </div>
 
-                        <div className="relative space-y-3">
+                        <div className="relative space-y-4">
                           {/* خط تایم‌لاین */}
-                          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-red-400/50 via-amber-400/50 to-cyan-400/50" />
+                          <div className="absolute left-8 top-0 bottom-0 w-1 bg-gradient-to-b from-red-400/60 via-amber-400/60 to-cyan-400/60" />
 
                           {rep.phases.map((ph, i) => (
                             <motion.div
                               key={i}
-                              initial={{ opacity: 0, x: -20 }}
+                              initial={{ opacity: 0, x: -30 }}
                               animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.9 + i * 0.15 }}
-                              className="relative flex gap-4"
+                              transition={{ delay: 1 + i * 0.2 }}
+                              className="relative flex gap-6"
                             >
                               {/* نقطه تایم‌لاین */}
                               <div className={cn(
-                                'relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 font-display text-xs font-black',
+                                'relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-3 font-display text-lg font-black',
                                 CLIP_SM,
                                 ph.winner === 'att'
-                                  ? 'border-red-400/70 bg-red-400/20 text-red-300 shadow-[0_0_20px_rgba(239,68,68,0.5)]'
+                                  ? 'border-red-400/80 bg-red-400/30 text-red-300 shadow-[0_0_30px_rgba(239,68,68,0.7)]'
                                   : ph.winner === 'def'
-                                  ? 'border-cyan-400/70 bg-cyan-400/20 text-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.5)]'
-                                  : 'border-slate-400/40 bg-white/10 text-slate-400'
+                                  ? 'border-cyan-400/80 bg-cyan-400/30 text-cyan-300 shadow-[0_0_30px_rgba(34,211,238,0.7)]'
+                                  : 'border-slate-400/50 bg-white/15 text-slate-400'
                               )}>
-                                {i + 1}
+                                {toFa(i + 1)}
                               </div>
 
                               {/* کارت فاز */}
-                              <div className={cn('flex-1 border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-4', CLIP_SM)}>
-                                <div className="mb-2 flex items-center justify-between">
-                                  <p className="font-display text-xs font-black text-white">{ph.name}</p>
+                              <div className={cn('flex-1 border border-white/15 bg-gradient-to-br from-white/8 to-transparent p-5', CLIP_SM)}>
+                                <div className="mb-3 flex items-center justify-between">
+                                  <p className="font-display text-sm font-black text-white">{ph.name}</p>
                                   <span className={cn(
-                                    'border px-2 py-0.5 text-[8px] font-black',
+                                    'border px-3 py-1 text-xs font-black',
                                     CLIP_SM,
                                     ph.winner === 'att'
-                                      ? 'border-red-400/50 bg-red-400/10 text-red-300'
+                                      ? 'border-red-400/60 bg-red-400/15 text-red-300'
                                       : ph.winner === 'def'
-                                      ? 'border-cyan-400/50 bg-cyan-400/10 text-cyan-300'
-                                      : 'border-slate-400/40 bg-white/5 text-slate-400'
+                                      ? 'border-cyan-400/60 bg-cyan-400/15 text-cyan-300'
+                                      : 'border-slate-400/50 bg-white/8 text-slate-400'
                                   )}>
-                                    {ph.winner === 'att' ? '🔴 برتری مهاجم' : ph.winner === 'def' ? ' برتری مدافع' : '⚖️ مساوی'}
+                                    {ph.winner === 'att' ? '🔴 برتری مهاجم' : ph.winner === 'def' ? '🔵 برتری مدافع' : '⚖️ مساوی'}
                                   </span>
                                 </div>
                                 {ph.att && (
-                                  <p className="mb-1.5 text-[10px] leading-5 text-red-200/90">
-                                    <span className="mr-1 font-bold">🔴</span> {ph.att}
+                                  <p className="mb-2 text-sm leading-6 text-red-200/90">
+                                    <span className="mr-2 font-bold">🔴</span> {ph.att}
                                   </p>
                                 )}
                                 {ph.def && (
-                                  <p className="text-[10px] leading-5 text-cyan-200/90">
-                                    <span className="mr-1 font-bold">🔵</span> {ph.def}
+                                  <p className="text-sm leading-6 text-cyan-200/90">
+                                    <span className="mr-2 font-bold">🔵</span> {ph.def}
                                   </p>
                                 )}
                               </div>
@@ -1344,23 +1374,23 @@ export default function War() {
                     {/* نقطه عطف و MVP */}
                     {(rep?.turning || rep?.mvp) && (
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 1.2 }}
-                        className="mb-6 grid gap-3 md:grid-cols-2"
+                        transition={{ delay: 1.3 }}
+                        className="mb-8 grid gap-4 md:grid-cols-2"
                       >
                         {rep.turning && (
-                          <div className={cn('relative border-2 border-amber-400/40 bg-gradient-to-br from-amber-400/10 to-orange-400/5 p-4', CLIP_SM)}>
-                            <div className="absolute -top-2 -left-2 text-3xl">🌀</div>
-                            <p className="mb-2 font-display text-[10px] font-black uppercase tracking-widest text-amber-300">نقطه عطف نبرد</p>
-                            <p className="text-[11px] leading-6 text-slate-200">{rep.turning}</p>
+                          <div className={cn('relative border-2 border-amber-400/50 bg-gradient-to-br from-amber-400/15 to-orange-400/10 p-6', CLIP_SM)}>
+                            <div className="absolute -top-3 -left-3 text-4xl" style={{ filter: 'drop-shadow(0 0 20px rgba(251,191,36,0.8))' }}>🌀</div>
+                            <p className="mb-3 font-display text-xs font-black uppercase tracking-widest text-amber-300">نقطه عطف نبرد</p>
+                            <p className="text-sm leading-7 text-slate-200">{rep.turning}</p>
                           </div>
                         )}
                         {rep.mvp && (
-                          <div className={cn('relative border-2 border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-400/10 to-purple-400/5 p-4', CLIP_SM)}>
-                            <div className="absolute -top-2 -left-2 text-3xl">🌟</div>
-                            <p className="mb-2 font-display text-[10px] font-black uppercase tracking-widest text-fuchsia-300">ستارهٔ میدان</p>
-                            <p className="text-[11px] leading-6 text-slate-200">{rep.mvp}</p>
+                          <div className={cn('relative border-2 border-fuchsia-400/50 bg-gradient-to-br from-fuchsia-400/15 to-purple-400/10 p-6', CLIP_SM)}>
+                            <div className="absolute -top-3 -left-3 text-4xl" style={{ filter: 'drop-shadow(0 0 20px rgba(217,70,239,0.8))' }}>🌟</div>
+                            <p className="mb-3 font-display text-xs font-black uppercase tracking-widest text-fuchsia-300">ستارهٔ میدان</p>
+                            <p className="text-sm leading-7 text-slate-200">{rep.mvp}</p>
                           </div>
                         )}
                       </motion.div>
@@ -1369,20 +1399,20 @@ export default function War() {
                     {/* تلفات */}
                     {rep?.casualties && (
                       <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 1.3 }}
-                        className="mb-6 grid grid-cols-2 gap-3"
+                        transition={{ delay: 1.4 }}
+                        className="mb-8 grid grid-cols-2 gap-4"
                       >
-                        <div className={cn('relative border border-red-400/30 bg-gradient-to-br from-red-400/10 to-transparent p-4 text-center', CLIP_SM)}>
-                          <div className="mb-1 text-2xl">💀</div>
-                          <p className="text-[9px] font-bold text-slate-500">تلفات مهاجم</p>
-                          <p className="mt-1 font-display text-sm font-black text-red-300">{rep.casualties.att}</p>
+                        <div className={cn('relative border border-red-400/40 bg-gradient-to-br from-red-400/15 to-transparent p-6 text-center', CLIP_SM)}>
+                          <div className="mb-2 text-4xl">💀</div>
+                          <p className="text-xs font-bold text-slate-500">تلفات مهاجم</p>
+                          <p className="mt-2 font-display text-xl font-black text-red-300">{rep.casualties.att}</p>
                         </div>
-                        <div className={cn('relative border border-cyan-400/30 bg-gradient-to-br from-cyan-400/10 to-transparent p-4 text-center', CLIP_SM)}>
-                          <div className="mb-1 text-2xl"></div>
-                          <p className="text-[9px] font-bold text-slate-500">تلفات مدافع</p>
-                          <p className="mt-1 font-display text-sm font-black text-cyan-300">{rep.casualties.def}</p>
+                        <div className={cn('relative border border-cyan-400/40 bg-gradient-to-br from-cyan-400/15 to-transparent p-6 text-center', CLIP_SM)}>
+                          <div className="mb-2 text-4xl">🩸</div>
+                          <p className="text-xs font-bold text-slate-500">تلفات مدافع</p>
+                          <p className="mt-2 font-display text-xl font-black text-cyan-300">{rep.casualties.def}</p>
                         </div>
                       </motion.div>
                     )}
@@ -1392,42 +1422,42 @@ export default function War() {
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: 1.4 }}
-                        className="mb-6 grid gap-3 md:grid-cols-2"
+                        transition={{ delay: 1.5 }}
+                        className="mb-8 grid gap-4 md:grid-cols-2"
                       >
-                        <div className={cn('border border-emerald-400/30 bg-gradient-to-br from-emerald-400/10 to-transparent p-4', CLIP_SM)}>
-                          <p className="mb-2 flex items-center gap-1.5 font-display text-[10px] font-black uppercase tracking-widest text-emerald-300">
-                            <span className="text-lg">💪</span> نقاط قوت تو
+                        <div className={cn('border border-emerald-400/40 bg-gradient-to-br from-emerald-400/15 to-transparent p-6', CLIP_SM)}>
+                          <p className="mb-4 flex items-center gap-2 font-display text-xs font-black uppercase tracking-widest text-emerald-300">
+                            <span className="text-2xl">💪</span> نقاط قوت تو
                           </p>
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {(rep.myStrengths || []).map((s, i) => (
                               <motion.div
                                 key={i}
-                                initial={{ opacity: 0, x: -10 }}
+                                initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 1.5 + i * 0.1 }}
-                                className="flex items-start gap-2 text-[10px] leading-5 text-slate-300"
+                                transition={{ delay: 1.6 + i * 0.1 }}
+                                className="flex items-start gap-3 text-sm leading-6 text-slate-300"
                               >
-                                <span className="mt-0.5 text-emerald-400">✓</span>
+                                <span className="mt-1 text-emerald-400">✓</span>
                                 <span>{s}</span>
                               </motion.div>
                             ))}
                           </div>
                         </div>
-                        <div className={cn('border border-red-400/30 bg-gradient-to-br from-red-400/10 to-transparent p-4', CLIP_SM)}>
-                          <p className="mb-2 flex items-center gap-1.5 font-display text-[10px] font-black uppercase tracking-widest text-red-300">
-                            <span className="text-lg">🩸</span> نقاط ضعف تو
+                        <div className={cn('border border-red-400/40 bg-gradient-to-br from-red-400/15 to-transparent p-6', CLIP_SM)}>
+                          <p className="mb-4 flex items-center gap-2 font-display text-xs font-black uppercase tracking-widest text-red-300">
+                            <span className="text-2xl">🩸</span> نقاط ضعف تو
                           </p>
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {(rep.myWeaknesses || []).map((s, i) => (
                               <motion.div
                                 key={i}
-                                initial={{ opacity: 0, x: -10 }}
+                                initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 1.5 + i * 0.1 }}
-                                className="flex items-start gap-2 text-[10px] leading-5 text-slate-300"
+                                transition={{ delay: 1.6 + i * 0.1 }}
+                                className="flex items-start gap-3 text-sm leading-6 text-slate-300"
                               >
-                                <span className="mt-0.5 text-red-400">✗</span>
+                                <span className="mt-1 text-red-400"></span>
                                 <span>{s}</span>
                               </motion.div>
                             ))}
@@ -1441,20 +1471,20 @@ export default function War() {
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: 1.6 }}
-                        className="mb-6 space-y-3"
+                        transition={{ delay: 1.7 }}
+                        className="mb-8 space-y-4"
                       >
-                        <div className={cn('border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-4', CLIP_SM)}>
-                          <p className="mb-2 flex items-center gap-1.5 font-display text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            <span className="text-lg">📜</span> روایت کامل عملکرد تو
+                        <div className={cn('border border-white/15 bg-gradient-to-br from-white/8 to-transparent p-6', CLIP_SM)}>
+                          <p className="mb-3 flex items-center gap-2 font-display text-xs font-black uppercase tracking-widest text-slate-400">
+                            <span className="text-2xl">📜</span> روایت کامل عملکرد تو
                           </p>
-                          <p className="text-[11px] leading-6 text-slate-200">{mine === 'att' ? aA.summary : aD.summary}</p>
+                          <p className="text-sm leading-7 text-slate-200">{mine === 'att' ? aA.summary : aD.summary}</p>
                         </div>
-                        <div className={cn('border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-4', CLIP_SM)}>
-                          <p className="mb-2 flex items-center gap-1.5 font-display text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            <span className="text-lg">👁</span> روایت کامل عملکرد حریف
+                        <div className={cn('border border-white/15 bg-gradient-to-br from-white/8 to-transparent p-6', CLIP_SM)}>
+                          <p className="mb-3 flex items-center gap-2 font-display text-xs font-black uppercase tracking-widest text-slate-400">
+                            <span className="text-2xl">👁</span> روایت کامل عملکرد حریف
                           </p>
-                          <p className="text-[11px] leading-6 text-slate-200">{mine === 'att' ? aD.summary : aA.summary}</p>
+                          <p className="text-sm leading-7 text-slate-200">{mine === 'att' ? aD.summary : aA.summary}</p>
                         </div>
                       </motion.div>
                     )}
@@ -1462,27 +1492,27 @@ export default function War() {
                     {/* درس‌های ستاد */}
                     {rep?.lessons?.length > 0 && (
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 1.7 }}
-                        className={cn('mb-6 border-2 border-cyan-400/30 bg-gradient-to-br from-cyan-400/10 to-blue-400/5 p-5', CLIP_SM)}
+                        transition={{ delay: 1.8 }}
+                        className={cn('mb-8 border-2 border-cyan-400/40 bg-gradient-to-br from-cyan-400/15 to-blue-400/10 p-6', CLIP_SM)}
                       >
-                        <p className="mb-3 flex items-center gap-2 font-display text-[11px] font-black uppercase tracking-widest text-cyan-300">
-                          <span className="text-2xl">🎓</span> درس‌های ستاد برای نبرد بعدی
+                        <p className="mb-4 flex items-center gap-3 font-display text-sm font-black uppercase tracking-widest text-cyan-300">
+                          <span className="text-3xl">🎓</span> درس‌های ستاد برای نبرد بعدی
                         </p>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {rep.lessons.map((l, i) => (
                             <motion.div
                               key={i}
-                              initial={{ opacity: 0, x: -10 }}
+                              initial={{ opacity: 0, x: -20 }}
                               animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 1.8 + i * 0.1 }}
-                              className="flex items-start gap-3 border-b border-white/5 pb-2 last:border-0"
+                              transition={{ delay: 1.9 + i * 0.1 }}
+                              className="flex items-start gap-4 border-b border-white/10 pb-3 last:border-0"
                             >
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/20 font-display text-[10px] font-black text-cyan-300">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-400/25 font-display text-sm font-black text-cyan-300">
                                 {toFa(i + 1)}
                               </span>
-                              <p className="text-[10px] leading-5 text-slate-300">{l}</p>
+                              <p className="text-sm leading-6 text-slate-300">{l}</p>
                             </motion.div>
                           ))}
                         </div>
@@ -1491,9 +1521,9 @@ export default function War() {
 
                     {/* قفل برای غیر شرکت‌کنندگان */}
                     {!mine && (
-                      <div className={cn('mb-6 border border-white/10 bg-white/5 p-4 text-center', CLIP_SM)}>
-                        <span className="text-2xl">🔒</span>
-                        <p className="mt-2 text-[10px] text-slate-500">تحلیل کامل فقط در اختیار دو کشور نبرد است.</p>
+                      <div className={cn('mb-8 border border-white/15 bg-white/10 p-6 text-center', CLIP_SM)}>
+                        <span className="text-4xl"></span>
+                        <p className="mt-3 text-sm text-slate-500">تحلیل کامل فقط در اختیار دو کشور نبرد است.</p>
                       </div>
                     )}
 
@@ -1502,11 +1532,11 @@ export default function War() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 2 }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => setAnalysis(null)}
                       className={cn(
-                        'w-full border-2 border-white/20 bg-gradient-to-r from-white/5 to-white/10 py-3 font-display text-[11px] font-black uppercase tracking-[0.3em] text-slate-300 transition-all hover:border-cyan-400/50 hover:from-cyan-400/10 hover:to-cyan-400/5 hover:text-cyan-300',
+                        'w-full border-2 border-white/25 bg-gradient-to-r from-white/10 to-white/5 py-4 font-display text-sm font-black uppercase tracking-[0.4em] text-slate-300 transition-all hover:border-cyan-400/60 hover:from-cyan-400/15 hover:to-cyan-400/5 hover:text-cyan-300',
                         CLIP_SM
                       )}
                     >
