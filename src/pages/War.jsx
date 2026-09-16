@@ -220,8 +220,11 @@ export default function War() {
   const lastPlanIdRef = useRef(null);
   const [spyAlert, setSpyAlert] = useState(null);
   const [blitzPoll, setBlitzPoll] = useState(false);
+  const countryRef = useRef(null);
+const openBlitzPlanRef = useRef(null);
 
   const flash = (m) => { setNotice(m); setTimeout(() => setNotice(''), 4000); };
+  // به‌روزرسانی Refs برای استفاده در closure ها
   const pushLog = (m) => setLog((L) => [...L.slice(-40), { t: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }), m }]);
 
   const load = async () => {
@@ -259,44 +262,53 @@ export default function War() {
     });
   };
 
-  useEffect(() => {
+   useEffect(() => {
     load();
     pushLog('سیستم فرماندهی آنلاین شد. منتظر دستورات...');
     const t = setInterval(() => setNow(Date.now()), 1000);
+    
     const ch = supabase
       .channel('war-ultra-' + user?.id + '-' + Math.random().toString(36).slice(2))
-.on('postgres_changes', { event: '*', schema: 'public', table: 'war_matches' }, async (p) => {
-  pushLog(p.eventType === 'UPDATE' && p.new?.status === 'finished' ? '⚔️ یک نبرد به پایان رسید: ' + (p.new?.public_result || '') : '📡 رویداد جدید نبرد ثبت شد');
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'war_matches' }, async (p) => {
+        pushLog(p.eventType === 'UPDATE' && p.new?.status === 'finished' ? '⚔️ یک نبرد به پایان رسید: ' + (p.new?.public_result || '') : '📡 رویداد جدید نبرد ثبت شد');
 
-  // ✅ اگر نبرد تمام شده و مربوط به کاربر است، فوراً نتیجه را نشان بده
-  if (
-    p.eventType === 'UPDATE' &&
-    p.new?.status === 'finished' &&
-    country?.id &&
-    (p.new.attacker_country === country.id || p.new.defender_country === country.id)
-  ) {
-    setAnalysis(p.new);
-  }
+        // ✅ ۱. اگر نبرد تمام شده و مربوط به کاربر است، فوراً نتیجه را نشان بده
+        if (
+          p.eventType === 'UPDATE' &&
+          p.new?.status === 'finished' &&
+          countryRef.current?.id &&
+          (p.new.attacker_country === countryRef.current.id || p.new.defender_country === countryRef.current.id)
+        ) {
+          setAnalysis(p.new);
+        }
 
-  // ✅ اگر نبرد بلیتز جدید ساخته شده و مربوط به کاربر است، مودال سناریو را باز کن
-  if (
-    p.eventType === 'INSERT' &&
-    p.new?.mode === 'blitz' &&
-    p.new?.status !== 'finished' &&
-    country?.id &&
-    (p.new.attacker_country === country.id || p.new.defender_country === country.id)
-  ) {
-    openBlitzPlan(p.new.id);
-  }
+        // ✅ ۲. اگر نبرد بلیتز جدید ساخته شده و مربوط به کاربر است، مودال سناریو را باز کن
+        if (
+          p.eventType === 'INSERT' &&
+          p.new?.mode === 'blitz' &&
+          p.new?.status !== 'finished' &&
+          countryRef.current?.id &&
+          (p.new.attacker_country === countryRef.current.id || p.new.defender_country === countryRef.current.id)
+        ) {
+          if (openBlitzPlanRef.current) {
+            openBlitzPlanRef.current(p.new.id);
+          }
+        }
 
-  load();
-})
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sanctions' }, () => { pushLog('🥶 یک تحریم جدید در جهان ثبت شد'); load(); })
+        load();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sanctions' }, () => { 
+        pushLog('🥶 یک تحریم جدید در جهان ثبت شد'); 
+        load(); 
+      })
       .subscribe();
-    return () => { clearInterval(t); supabase.removeChannel(ch); };
+
+    return () => { 
+      clearInterval(t); 
+      supabase.removeChannel(ch); 
+    };
     // eslint-disable-next-line
   }, [user?.id]);
-
   /* 🕵️ واکنش رادار به جاسوسی از کشور من */
   useEffect(() => {
     if (!country?.id) return undefined;
@@ -359,6 +371,11 @@ export default function War() {
     return () => clearInterval(t);
     // eslint-disable-next-line
   }, [blitzPoll]);
+  useEffect(() => {
+  countryRef.current = country;
+  openBlitzPlanRef.current = openBlitzPlan;
+}, [country, openBlitzPlan]);
+
   /* ⚡ حل خودکار نبردهای بلیتز بعد از ۹۰ ثانیه + توزیع غنایم */
     useEffect(() => {
     const t = setInterval(async () => {
